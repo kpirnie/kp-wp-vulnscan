@@ -109,10 +109,11 @@ RUN set -eux; \
     chmod -R +x /etc/s6-overlay/s6-rc.d /usr/local/bin; \
     mkdir -p /data /reports
 
-# /var/lib/mysql has to be a mount or the catalog dies with the container.
-# the entrypoint refuses to start without it rather than writing into the
-# container layer where it would silently vanish on the next pull
-VOLUME ["/var/lib/mysql", "/data", "/reports"]
+# deliberately no VOLUME instruction. declaring one makes the runtime
+# create an anonymous volume, which both defeats the mount check in the
+# entrypoint and leaves data in a volume with a random name that is easy
+# to orphan and hard to find again. the entrypoint requires an explicit
+# mount instead, and says so plainly when there is not one
 
 EXPOSE 8080
 

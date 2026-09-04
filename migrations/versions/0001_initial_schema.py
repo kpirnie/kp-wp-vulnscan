@@ -266,7 +266,9 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column(
-            "trigger", sa.Enum("cron", "manual", "ui", name="runtrigger", native_enum=False, length=16), nullable=False
+            "trigger_source",
+            sa.Enum("cron", "manual", "ui", name="runtrigger", native_enum=False, length=16),
+            nullable=False,
         ),
         sa.Column(
             "status",
