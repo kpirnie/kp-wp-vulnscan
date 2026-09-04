@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Users &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<h1 class="font-brand text-xl font-extrabold mb-1">Users</h1>
+<p class="text-dim text-sm mb-5">Admins manage everything, managers read and work findings, users read.</p>
+
+<div class="grid lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-3">
+    {% for account in users %}
+    <form method="post" action="/users/{{ account.id }}" class="kp-card p-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="flex-1 min-w-[180px]">
+          <div class="font-semibold text-sm">{{ account.display_name or account.username }}
+            {% if account.id == user.id %}<span class="kp-pill ml-1">you</span>{% endif %}</div>
+          <div class="text-dim text-xs font-mono">{{ account.username }}{% if account.email %} &middot; {{ account.email }}{% endif %}</div>
+          <div class="text-dim text-[11px] mt-1">
+            last seen {{ account.last_login_at|when }}
+            {% if account.locked_until %}&middot; <span class="text-sev-critical">locked</span>{% endif %}
+            {% if account.must_change_password %}&middot; <span class="text-sev-medium">must change password</span>{% endif %}
+          </div>
+        </div>
+        <select class="kp-input w-32" name="role">
+          {% for r in roles %}<option value="{{ r }}" {{ 'selected' if account.role.value == r }}>{{ r }}</option>{% endfor %}
+        </select>
+        <label class="flex items-center gap-2 text-xs"><input type="checkbox" name="is_active" value="1" {{ 'checked' if account.is_active }}> active</label>
+        {% if account.locked_until %}
+        <label class="flex items-center gap-2 text-xs"><input type="checkbox" name="unlock" value="1"> unlock</label>
+        {% endif %}
+        <button class="kp-btn-quiet" type="submit">Save</button>
+      </div>
+    </form>
+    <form method="post" action="/users/{{ account.id }}/reset" class="flex gap-2 items-center px-4 -mt-1">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input class="kp-input flex-1 text-xs" name="password" type="password" minlength="12" autocomplete="new-password"
+             placeholder="set a temporary password (12+ chars), they must change it on next sign in">
+      <button class="kp-btn-quiet" type="submit">Reset</button>
+    </form>
+    {% endfor %}
+  </div>
+
+  <div class="space-y-6">
+    <form method="post" action="/users" class="kp-card p-5 space-y-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <h2 class="font-semibold text-sm">Add a user</h2>
+      <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Username</label>
+        <input class="kp-input" name="username" required></div>
+      <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Display name</label>
+        <input class="kp-input" name="display_name"></div>
+      <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Email</label>
+        <input class="kp-input" name="email" type="email"></div>
+      <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Role</label>
+        <select class="kp-input" name="role">{% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}</select></div>
+      <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Temporary password</label>
+        <input class="kp-input" name="password" type="password" minlength="12" autocomplete="new-password" required></div>
+      <button class="kp-btn w-full justify-center" type="submit">Create</button>
+    </form>
+
+    <div class="kp-card p-5">
+      <h2 class="font-semibold text-sm mb-3">Recent activity</h2>
+      <ol class="space-y-2 text-xs">
+        {% for event in events %}
+        <li class="flex gap-2">
+          <span class="text-dim font-mono shrink-0">{{ event.created_at|when }}</span>
+          <span class="{% if event.action == 'login_failed' %}text-sev-medium{% endif %}">
+            {{ event.username or "—" }} {{ event.action.replace('_',' ') }}
+            {% if event.target_id %}<span class="text-dim">{{ event.target_id }}</span>{% endif %}
+          </span>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+  </div>
+</div>
+{% endblock %}

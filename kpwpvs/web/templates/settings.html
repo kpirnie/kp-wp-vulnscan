@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Settings &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<h1 class="font-brand text-xl font-extrabold mb-1">Settings</h1>
+<p class="text-dim text-sm mb-5">Everything except the database connection and the secret key lives here rather than in a file.</p>
+
+<form method="post" action="/settings" class="space-y-6">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {% for group in groups %}
+  <section class="kp-card p-5">
+    <h2 class="font-brand text-sm uppercase tracking-[.1em] text-cyan mb-4">{{ group.name }}</h2>
+    <div class="space-y-4">
+      {% for entry in group.entries %}
+      {% set d = entry.definition %}
+      <div class="grid md:grid-cols-[minmax(0,1fr)_320px] gap-3 items-start">
+        <div>
+          <label class="text-sm font-medium" for="setting__{{ d.key }}">{{ d.label }}</label>
+          <p class="text-dim text-xs mt-0.5">{{ d.description }}</p>
+          <p class="text-dim/60 font-mono text-[10px] mt-0.5">{{ d.key }}</p>
+        </div>
+        <div>
+          {% if d.type.value == 'boolean' %}
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" id="setting__{{ d.key }}" name="setting__{{ d.key }}" value="1" {{ 'checked' if entry.value }}>
+              <span class="text-dim">{{ 'on' if entry.value else 'off' }}</span></label>
+          {% elif d.type.value == 'choice' %}
+            <select class="kp-input" id="setting__{{ d.key }}" name="setting__{{ d.key }}">
+              {% for choice in d.choices %}<option value="{{ choice }}" {{ 'selected' if entry.value == choice }}>{{ choice }}</option>{% endfor %}
+            </select>
+          {% elif d.type.value == 'secret' %}
+            <input class="kp-input font-mono text-xs" id="setting__{{ d.key }}" name="setting__{{ d.key }}" type="password"
+                   autocomplete="off" placeholder="{{ 'stored, leave blank to keep' if entry.is_set else 'not set' }}">
+          {% elif d.type.value in ('integer','float') %}
+            <input class="kp-input font-mono text-sm" id="setting__{{ d.key }}" name="setting__{{ d.key }}"
+                   type="number" step="{{ '0.01' if d.type.value == 'float' else '1' }}"
+                   {% if d.minimum is not none %}min="{{ d.minimum }}"{% endif %}
+                   {% if d.maximum is not none %}max="{{ d.maximum }}"{% endif %}
+                   value="{{ entry.value }}">
+          {% else %}
+            <input class="kp-input text-sm" id="setting__{{ d.key }}" name="setting__{{ d.key }}" value="{{ entry.value }}">
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  <button class="kp-btn" type="submit">Save settings</button>
+</form>
+{% endblock %}

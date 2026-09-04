@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Catalog &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<h1 class="font-brand text-xl font-extrabold mb-4">Catalog</h1>
+<form class="kp-card p-4 mb-5 flex flex-wrap gap-3 items-end"
+      hx-get="/software" hx-target="#software-results" hx-select="#software-results"
+      hx-trigger="change, submit, keyup from:input[name=q] delay:400ms" hx-push-url="true">
+  <div class="flex-1 min-w-[220px]">
+    <label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Search</label>
+    <input class="kp-input" name="q" value="{{ q }}" placeholder="slug or name">
+  </div>
+  <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Type</label>
+    <select class="kp-input" name="software_type"><option value="">Any</option>
+      {% for t in types %}<option value="{{ t }}" {{ 'selected' if software_type == t }}>{{ t }}</option>{% endfor %}</select></div>
+  <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Status</label>
+    <select class="kp-input" name="software_status"><option value="">Any</option>
+      {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if software_status == s }}>{{ s }}</option>{% endfor %}</select></div>
+  <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Sort</label>
+    <select class="kp-input" name="sort">
+      {% for key, label in [('priority','Priority'),('issues','Issue count'),('installs','Installs'),('updated','Last updated')] %}
+      <option value="{{ key }}" {{ 'selected' if sort == key }}>{{ label }}</option>{% endfor %}</select></div>
+  <span class="htmx-indicator text-xs text-cyan pb-2">searching…</span>
+</form>
+{% include "partials/software_table.html" %}
+{% endblock %}

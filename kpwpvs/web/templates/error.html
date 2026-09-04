@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ status_code }} &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto mt-16 text-center">
+  <div class="font-brand text-6xl font-extrabold text-sev-critical">{{ status_code }}</div>
+  <p class="text-dim mt-3">{{ detail }}</p>
+  <a href="/" class="kp-btn mt-6">Back to the dashboard</a>
+</div>
+{% endblock %}

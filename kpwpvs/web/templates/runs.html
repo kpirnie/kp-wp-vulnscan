@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Runs &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<h1 class="font-brand text-xl font-extrabold mb-5">Run history</h1>
+<div class="space-y-3">
+{% for run in runs %}
+<div class="kp-card p-4">
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="font-mono text-sm">#{{ run.id }}</span>
+    <span class="kp-pill">{{ run.kind.value }}</span>
+    <span class="kp-pill">{{ run.trigger_source.value }}</span>
+    <span class="kp-pill {% if run.status.value == 'success' %}border-ok text-ok{% elif run.status.value in ('failed','partial') %}border-sev-critical text-sev-critical{% endif %}">{{ run.status.value }}</span>
+    <span class="text-dim text-xs font-mono ml-auto">{{ run.started_at|when }}</span>
+  </div>
+  <div class="flex flex-wrap gap-2 mt-3">
+    {% for stage in stages.get(run.id, []) %}
+    <div class="text-xs border border-line rounded-[10px] px-3 py-1.5">
+      <span class="{% if stage.status.value == 'success' %}text-ok{% elif stage.status.value == 'failed' %}text-sev-critical{% else %}text-dim{% endif %}">{{ stage.stage }}</span>
+      {% if stage.started_at and stage.finished_at %}
+      <span class="text-dim font-mono ml-1">{{ ((stage.finished_at - stage.started_at).total_seconds())|round(0)|int }}s</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% for stage in stages.get(run.id, []) %}
+    {% if stage.error %}<div class="text-sev-critical text-xs mt-2 font-mono">{{ stage.stage }}: {{ stage.error }}</div>{% endif %}
+  {% endfor %}
+</div>
+{% endfor %}
+</div>
+{% endblock %}

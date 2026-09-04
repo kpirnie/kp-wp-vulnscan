@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Feeds &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<h1 class="font-brand text-xl font-extrabold mb-1">Vulnerability feeds</h1>
+<p class="text-dim text-sm mb-5">Endpoints are editable on purpose. The Wordfence v2 feed was retired mid-project and started answering 410, and being able to point at the replacement without a redeploy is why these are rows rather than configuration.</p>
+
+{% if not can_store_keys %}
+<div class="kp-card p-4 mb-5 border-sev-medium text-sev-medium text-sm">
+  No secret key is configured, so API keys cannot be stored or read. Set <code class="font-mono">KPWPVS_SECRET_KEY</code>.
+</div>
+{% endif %}
+
+<div class="space-y-5">
+{% for feed in feeds %}
+<form method="post" action="/feeds/{{ feed.id }}" class="kp-card p-5">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="flex flex-wrap items-baseline justify-between gap-3 mb-4">
+    <div>
+      <h2 class="font-semibold">{{ feed.name }} <span class="kp-pill ml-1">priority {{ feed.priority }}</span></h2>
+      <p class="text-dim text-xs mt-1 max-w-3xl">{{ feed.description }}</p>
+    </div>
+    <div class="text-right text-xs">
+      {% if feed.last_error %}<div class="text-sev-critical max-w-xs">{{ feed.last_error }}</div>
+      {% else %}<div class="text-ok">last success {{ feed.last_success_at|when }}</div>{% endif %}
+      <div class="text-dim font-mono mt-1">{{ feed.record_count|number }} records</div>
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="md:col-span-2">
+      <label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Endpoint</label>
+      <input class="kp-input font-mono text-xs" name="url" value="{{ feed.url }}" required>
+    </div>
+    <div>
+      <label class="block text-[11px] uppercase tracking-wider text-dim mb-1">
+        API key {% if feed.has_api_key %}<span class="text-ok normal-case">(one is stored)</span>{% endif %}
+      </label>
+      <input class="kp-input font-mono text-xs" name="api_key" type="password" autocomplete="off"
+             placeholder="{{ 'leave blank to keep the stored key' if feed.has_api_key else 'none stored' }}"
+             {{ 'disabled' if not can_store_keys }}>
+      {% if feed.has_api_key %}
+      <label class="flex items-center gap-2 text-xs text-dim mt-2">
+        <input type="checkbox" name="clear_key" value="1"> remove the stored key
+      </label>
+      {% endif %}
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+      <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Timeout</label>
+        <input class="kp-input" name="timeout" type="number" min="1" max="900" value="{{ feed.timeout }}"></div>
+      <div><label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Priority</label>
+        <input class="kp-input" name="priority" type="number" value="{{ feed.priority }}"></div>
+      <div class="flex items-end">
+        <label class="flex items-center gap-2 text-sm pb-2">
+          <input type="checkbox" name="enabled" value="1" {{ 'checked' if feed.enabled }}> enabled
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="mt-4"><button class="kp-btn" type="submit">Save {{ feed.name }}</button></div>
+</form>
+{% endfor %}
+</div>
+{% endblock %}

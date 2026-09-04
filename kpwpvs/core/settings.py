@@ -308,6 +308,32 @@ SETTINGS: tuple[SettingDef, ...] = (
 
     # --- web -------------------------------------------------------------
     SettingDef(
+        key="web.host",
+        type=SettingType.STRING,
+        default="0.0.0.0",
+        label="Bind address",
+        description="What the interface listens on. Takes effect when the interface restarts.",
+        group="web",
+    ),
+    SettingDef(
+        key="web.port",
+        type=SettingType.INTEGER,
+        default=8080,
+        label="Bind port",
+        description="What port the interface listens on. Takes effect when the interface restarts.",
+        group="web",
+        minimum=1,
+        maximum=65535,
+    ),
+    SettingDef(
+        key="web.auth_enabled",
+        type=SettingType.BOOLEAN,
+        default=True,
+        label="Require sign in",
+        description="Leave on unless something in front of this is doing the authenticating. Off means every visitor has full access.",
+        group="web",
+    ),
+    SettingDef(
         key="web.base_url",
         type=SettingType.STRING,
         default="",

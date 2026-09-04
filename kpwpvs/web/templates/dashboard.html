@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Dashboard &middot; {{ site_name }}{% endblock %}
+{% block content %}
+
+{# core leads, a vulnerable core makes everything under it moot #}
+<h2 class="font-brand text-sm uppercase tracking-[.1em] text-cyan mb-3">WordPress core</h2>
+{% if not core %}
+<div class="kp-card p-5 text-dim text-sm">Core has not been crawled yet. Run <code class="font-mono">kpwpvs crawl --core-only</code>.</div>
+{% else %}
+<div class="rounded-[var(--radius-kp-xl)] border p-6 bg-gradient-to-b from-card-alt to-card
+            {% if core_issues %}border-sev-critical{% else %}border-line-lit{% endif %}">
+  <div class="flex flex-wrap gap-6 items-baseline justify-between">
+    <div>
+      <div class="text-xs uppercase tracking-wider text-dim">Current release</div>
+      <div class="font-brand text-5xl font-extrabold text-white leading-none mt-1">{{ core.version }}</div>
+    </div>
+    <div class="text-right">
+      {% if core_issues %}
+      <div class="kp-sev text-sev-critical">{{ core_issues|length }} known issue{{ "s" if core_issues|length != 1 }} in the current release</div>
+      {% else %}
+      <div class="kp-sev text-ok">No known issues in the current release</div>
+      {% endif %}
+      <a href="/core" class="block text-xs text-dim mt-2 hover:text-cyan">View the full release history &rarr;</a>
+    </div>
+  </div>
+
+  {% if core_issues %}
+  <p class="text-dim text-sm mt-5">These affect the newest release available, so no installation is unaffected:</p>
+  <div class="overflow-x-auto mt-2 rounded-[var(--radius-kp)] border border-line">
+    <table class="w-full">
+      <thead><tr><th class="kp-th">Severity</th><th class="kp-th">CVE</th><th class="kp-th">Issue</th><th class="kp-th text-right">CVSS</th></tr></thead>
+      <tbody>
+      {% for finding, vuln in core_issues %}
+        <tr>
+          <td class="kp-td"><span class="kp-sev text-sev-{{ finding.severity.value }}">{{ finding.severity.value }}</span></td>
+          <td class="kp-td font-mono text-xs">{{ vuln.cve or "—" }}</td>
+          <td class="kp-td"><a href="/findings/{{ finding.id }}">{{ vuln.title }}</a></td>
+          <td class="kp-td text-right font-mono text-xs">{{ "%.1f"|format(vuln.cvss_score) if vuln.cvss_score else "—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<h2 class="font-brand text-sm uppercase tracking-[.1em] text-cyan mt-10 mb-3">Open plugin findings</h2>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+  {% for level in ['critical','high','medium','low'] %}
+  <a href="/findings?severity={{ level }}" class="kp-card p-4 hover:border-brand transition-colors
+     {% if level == 'critical' and severities.get('critical') %}border-sev-critical{% endif %}">
+    <div class="font-brand text-3xl font-extrabold {% if level == 'critical' and severities.get('critical') %}text-sev-critical{% else %}text-white{% endif %}">{{ severities.get(level, 0)|number }}</div>
+    <div class="text-[11px] uppercase tracking-[.09em] text-dim mt-0.5">{{ level }}</div>
+  </a>
+  {% endfor %}
+  <a href="/software" class="kp-card p-4 hover:border-brand transition-colors">
+    <div class="font-brand text-3xl font-extrabold text-white">{{ catalog_total|number }}</div>
+    <div class="text-[11px] uppercase tracking-[.09em] text-dim mt-0.5">Catalogued</div>
+  </a>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6 mt-8">
+  <div>
+    <h2 class="font-brand text-sm uppercase tracking-[.1em] text-cyan mb-3">Highest priority</h2>
+    <div class="overflow-x-auto kp-card">
+      <table class="w-full">
+        <thead><tr><th class="kp-th">Slug</th><th class="kp-th">Status</th><th class="kp-th text-right">Issues</th><th class="kp-th text-right">Score</th></tr></thead>
+        <tbody>
+        {% for entry in priorities %}
+          <tr>
+            <td class="kp-td"><a href="/software/{{ entry.id }}" class="font-mono text-xs">{{ entry.slug }}</a></td>
+            <td class="kp-td"><span class="kp-pill">{{ entry.status.value }}</span></td>
+            <td class="kp-td text-right font-mono text-xs">{{ entry.issue_count }}</td>
+            <td class="kp-td text-right font-mono text-xs">{{ entry.priority_score|round(0)|int }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <h2 class="font-brand text-sm uppercase tracking-[.1em] text-cyan mb-3">Data sources</h2>
+    <div class="overflow-x-auto kp-card">
+      <table class="w-full">
+        <thead><tr><th class="kp-th">Feed</th><th class="kp-th">State</th><th class="kp-th">Last success</th><th class="kp-th text-right">Records</th></tr></thead>
+        <tbody>
+        {% for feed in feeds %}
+          <tr>
+            <td class="kp-td">{{ feed.name }}</td>
+            <td class="kp-td">
+              {% if not feed.enabled %}<span class="kp-pill">disabled</span>
+              {% elif feed.last_error %}<span class="kp-pill border-sev-critical text-sev-critical">error</span>
+              {% else %}<span class="kp-pill border-ok text-ok">ok</span>{% endif %}
+            </td>
+            <td class="kp-td font-mono text-xs">{{ feed.last_success_at|when }}</td>
+            <td class="kp-td text-right font-mono text-xs">{{ feed.record_count|number }}</td>
+          </tr>
+          {% if feed.last_error %}<tr><td colspan="4" class="kp-td text-dim text-xs">{{ feed.last_error }}</td></tr>{% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="font-brand text-sm uppercase tracking-[.1em] text-cyan mt-8 mb-3">Recent runs</h2>
+    <div class="overflow-x-auto kp-card">
+      <table class="w-full">
+        <thead><tr><th class="kp-th">Run</th><th class="kp-th">Status</th><th class="kp-th">Started</th><th class="kp-th text-right">Opened</th></tr></thead>
+        <tbody>
+        {% for run in runs %}
+          <tr>
+            <td class="kp-td font-mono text-xs">#{{ run.id }} {{ run.kind.value }}</td>
+            <td class="kp-td"><span class="kp-pill {% if run.status.value == 'success' %}border-ok text-ok{% elif run.status.value in ('failed','partial') %}border-sev-critical text-sev-critical{% endif %}">{{ run.status.value }}</span></td>
+            <td class="kp-td font-mono text-xs">{{ run.started_at|when }}</td>
+            <td class="kp-td text-right font-mono text-xs">{{ run.findings_opened }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

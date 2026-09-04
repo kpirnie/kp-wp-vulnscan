@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ site_name }}{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Sora:wght@300;400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.4/htmx.min.js" defer></script>
+</head>
+<body class="min-h-screen">
+
+{% if user %}
+<nav class="border-b border-line bg-card/70 backdrop-blur sticky top-0 z-20">
+  <div class="max-w-[1400px] mx-auto px-5 flex items-center gap-6 h-16">
+    <a href="/" class="font-brand font-extrabold text-white tracking-wide text-[15px] shrink-0">KP&nbsp;WP&nbsp;VULNSCAN</a>
+    <div class="flex items-center gap-1 text-sm overflow-x-auto">
+      {% set nav = [('/', 'Dashboard', 'user'), ('/core', 'Core', 'user'), ('/findings', 'Findings', 'user'),
+                    ('/software', 'Catalog', 'user'), ('/runs', 'Runs', 'manager'),
+                    ('/feeds', 'Feeds', 'admin'), ('/settings', 'Settings', 'admin'), ('/users', 'Users', 'admin')] %}
+      {% for href, label, need in nav %}
+        {% if need == 'user' or (need == 'manager' and user.role.rank >= 2) or (need == 'admin' and user.role.rank >= 3) %}
+        <a href="{{ href }}" class="px-3 py-1.5 rounded-[10px] whitespace-nowrap
+           {% if request.url.path == href %}bg-card-alt text-white{% else %}text-dim hover:text-ink{% endif %}">{{ label }}</a>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div class="ml-auto flex items-center gap-3 shrink-0">
+      <span class="text-xs text-dim hidden sm:inline">{{ user.display_name or user.username }}
+        <span class="kp-pill ml-1">{{ user.role.value }}</span></span>
+      <form method="post" action="/logout"><button class="kp-btn-quiet" type="submit">Sign out</button></form>
+    </div>
+  </div>
+</nav>
+{% endif %}
+
+<main class="max-w-[1400px] mx-auto px-5 py-8">
+{% block content %}{% endblock %}
+</main>
+
+<footer class="max-w-[1400px] mx-auto px-5 pb-10 pt-4 text-xs text-dim border-t border-line mt-10">
+  kp-wp-vulnscan {{ version }} &middot; vulnerability data reproduced from its sources under their respective terms
+</footer>
+</body>
+</html>

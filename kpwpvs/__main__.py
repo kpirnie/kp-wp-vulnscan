@@ -13,6 +13,7 @@ weekly scan, the individual pipeline stages, and the web interface.
 # setup the imports
 import argparse
 import asyncio
+import getpass
 import logging
 import sys
 import time
@@ -25,13 +26,14 @@ from kpwpvs.core.crypto import SecretBox
 from kpwpvs.core.db import init_engine, ping, session_scope
 from kpwpvs.core.logging import setup_logging
 from kpwpvs.core.migrate import current_revision, downgrade, head_revision, is_current, upgrade
-from kpwpvs.models import Feed, RunStatus, RunTrigger
+from kpwpvs.models import Feed, RunStatus, RunTrigger, User, UserRole
 from kpwpvs.services.crawler import Crawler
 from kpwpvs.services.feeds import FeedService
 from kpwpvs.services.matcher import Matcher
 from kpwpvs.services.pipeline import Pipeline
 from kpwpvs.services.reporter import Reporter
 from kpwpvs.services.settings_service import SettingsService
+from kpwpvs.web.security import hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     db.add_argument("--revision", default="head", help="target revision, defaults to head")
     db.add_argument("--timeout", type=int, default=60, help="seconds to wait, for the wait action")
+
+    # account management from the command line, which is how the first
+    # admin gets made before there is an interface to sign in to
+    user = sub.add_parser("user", help="manage accounts")
+    user.add_argument("action", choices=["add", "list", "passwd", "role"], help="what to do")
+    user.add_argument("username", nargs="?", help="which account")
+    user.add_argument("--role", choices=["admin", "manager", "user"], default="user", help="the role to give them")
+    user.add_argument("--email", default="", help="their email address")
 
     # the web interface
     web = sub.add_parser("web", help="run the web interface")
@@ -442,6 +452,129 @@ def handle_scan(config: BootstrapConfig, args: argparse.Namespace) -> int:
     return 0 if status is RunStatus.SUCCESS else 1
 
 
+def handle_user(config: BootstrapConfig, args: argparse.Namespace) -> int:
+    """
+    Handle the account subcommand
+
+    Exists mainly so the first admin can be created before there is an
+    interface to sign in to. Passwords are read from stdin rather than
+    the command line, which would otherwise put them in shell history
+    and in the process table.
+
+    @param config: BootstrapConfig The bootstrap configuration
+    @param args: argparse.Namespace The parsed command line arguments
+    @return int: The process exit code, zero on success
+    """
+
+    if not _ready(config):
+        return 1
+
+    init_engine(config)
+
+    with session_scope() as session:
+
+        # who is already here
+        if args.action == "list":
+            for account in session.execute(select(User).order_by(User.username)).scalars():
+                logger.info(
+                    "%-20s %-8s %s%s",
+                    account.username,
+                    account.role.value,
+                    "active" if account.is_active else "disabled",
+                    " (must change password)" if account.must_change_password else "",
+                )
+            return 0
+
+        # everything below needs to know which account
+        if not args.username:
+            logger.error("that action needs a username")
+            return 1
+
+        account = session.execute(
+            select(User).where(User.username == args.username)
+        ).scalar_one_or_none()
+
+        # change somebody's role
+        if args.action == "role":
+            if account is None:
+                logger.error("no account named '%s'", args.username)
+                return 1
+            account.role = UserRole(args.role)
+            session.commit()
+            logger.info("%s is now %s", account.username, account.role.value)
+            return 0
+
+        # both add and passwd want a password off stdin
+        password = sys.stdin.readline().strip() if not sys.stdin.isatty() else getpass.getpass("password: ")
+        if len(password) < 12:
+            logger.error("use at least 12 characters")
+            return 1
+
+        if args.action == "add":
+            if account is not None:
+                logger.error("'%s' already exists", args.username)
+                return 1
+            session.add(
+                User(
+                    username=args.username,
+                    email=args.email or None,
+                    role=UserRole(args.role),
+                    password_hash=hash_password(password),
+                    must_change_password=False,
+                )
+            )
+            session.commit()
+            logger.info("created %s as %s", args.username, args.role)
+            return 0
+
+        if args.action == "passwd":
+            if account is None:
+                logger.error("no account named '%s'", args.username)
+                return 1
+            account.password_hash = hash_password(password)
+            account.failed_attempts = 0
+            account.locked_until = None
+            session.commit()
+            logger.info("password changed for %s", account.username)
+            return 0
+
+    return 1
+
+
+def handle_web(config: BootstrapConfig, args: argparse.Namespace) -> int:
+    """
+    Handle the web interface subcommand
+
+    @param config: BootstrapConfig The bootstrap configuration
+    @param args: argparse.Namespace The parsed command line arguments
+    @return int: The process exit code
+    """
+
+    if not _ready(config):
+        return 1
+
+    import uvicorn
+
+    from kpwpvs.web.app import create_app
+
+    # the bind address can be overridden on the command line, otherwise it
+    # comes from the settings table like everything else
+    init_engine(config)
+    with session_scope() as session:
+        settings = SettingsService(session)
+        host = args.host or settings.get("web.host")
+        port = args.port or settings.get("web.port")
+
+        # nobody can sign in until an account exists
+        if session.execute(select(User).limit(1)).scalar_one_or_none() is None:
+            logger.warning("no accounts exist yet, create one with: kpwpvs user add <name> --role admin")
+
+    logger.info("serving the interface on http://%s:%s", host, port)
+    uvicorn.run(create_app(config), host=host, port=port, log_config=None, access_log=config.debug)
+
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """
     Application entry point
@@ -482,6 +615,10 @@ def main(argv: list[str] | None = None) -> int:
         return handle_report(config, args)
     if args.command == "scan":
         return handle_scan(config, args)
+    if args.command == "user":
+        return handle_user(config, args)
+    if args.command == "web":
+        return handle_web(config, args)
 
     # the pipeline stages land here as each one is built
     logger.error("command '%s' is not implemented yet", args.command)

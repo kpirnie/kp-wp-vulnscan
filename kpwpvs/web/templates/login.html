@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Sign in &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<div class="max-w-sm mx-auto mt-16">
+  <h1 class="font-brand text-2xl font-extrabold mb-1">{{ site_name }}</h1>
+  <p class="text-dim text-sm mb-6">Sign in to continue.</p>
+
+  {% if error %}
+  <div class="kp-card p-3 mb-4 border-sev-critical text-sev-critical text-sm">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/login" class="kp-card p-5 space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="next_url" value="{{ next_url }}">
+    <div>
+      <label class="block text-xs uppercase tracking-wider text-dim mb-1" for="username">Username</label>
+      <input class="kp-input" id="username" name="username" autocomplete="username" autofocus required>
+    </div>
+    <div>
+      <label class="block text-xs uppercase tracking-wider text-dim mb-1" for="password">Password</label>
+      <input class="kp-input" id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="kp-btn w-full justify-center" type="submit">Sign in</button>
+  </form>
+</div>
+{% endblock %}

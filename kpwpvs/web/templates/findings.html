@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Findings &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-baseline justify-between gap-3 mb-4">
+  <h1 class="font-brand text-xl font-extrabold">Findings</h1>
+  <p class="text-dim text-sm">A finding means the version in the catalog sits inside a known affected range.</p>
+</div>
+
+<form class="kp-card p-4 mb-5 flex flex-wrap gap-3 items-end"
+      hx-get="/findings" hx-target="#findings-results" hx-select="#findings-results"
+      hx-trigger="change, submit, keyup from:input[name=q] delay:400ms" hx-push-url="true">
+  <div>
+    <label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Kind</label>
+    <select class="kp-input" name="kind">
+      <option value="plugin" {{ 'selected' if kind == 'plugin' }}>Plugins &amp; themes</option>
+      <option value="core" {{ 'selected' if kind == 'core' }}>Core releases</option>
+    </select>
+  </div>
+  <div>
+    <label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Severity</label>
+    <select class="kp-input" name="severity">
+      <option value="">Any</option>
+      {% for level in severities %}<option value="{{ level }}" {{ 'selected' if severity == level }}>{{ level }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Status</label>
+    <select class="kp-input" name="state">
+      <option value="open" {{ 'selected' if state == 'open' }}>Needs attention</option>
+      <option value="all" {{ 'selected' if state == 'all' }}>Any</option>
+      {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if state == s }}>{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="flex-1 min-w-[200px]">
+    <label class="block text-[11px] uppercase tracking-wider text-dim mb-1">Search</label>
+    <input class="kp-input" name="q" value="{{ q }}" placeholder="slug or issue title">
+  </div>
+  <span class="htmx-indicator text-xs text-cyan pb-2">searching…</span>
+</form>
+
+{% include "partials/findings_table.html" %}
+{% endblock %}

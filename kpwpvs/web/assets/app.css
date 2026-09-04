@@ -1,0 +1,87 @@
+/*
+ * KP WP VulnScan interface stylesheet
+ *
+ * Tailwind v4, configured in css rather than javascript. The palette is
+ * podnest's, and the severity scale is a status ramp validated for
+ * colourblind separation against the card surface rather than picked by
+ * eye. Severity is never signalled by colour alone; every badge carries
+ * its label.
+ */
+
+@import "tailwindcss";
+
+@theme {
+  --color-bg:        #070e20;
+  --color-card:      #0c1530;
+  --color-card-alt:  #0f1d3d;
+  --color-input:     #101c3a;
+  --color-navy:      #0f1d3d;
+  --color-brand:     #2b8eff;
+  --color-brand-dk:  #1a6fd4;
+  --color-cyan:      #00d4ff;
+  --color-ink:       #dde8f5;
+  --color-dim:       #6b8cae;
+  --color-line:      #1a2a4a;
+  --color-line-lit:  #2a3f6a;
+  --color-ok:        #00e5a0;
+
+  /* the validated severity ramp */
+  --color-sev-critical: #ff4560;
+  --color-sev-high:     #ff9e4f;
+  --color-sev-medium:   #ffe066;
+  --color-sev-low:      #4dd8ff;
+  --color-sev-none:     #6b8cae;
+
+  --font-brand: "Orbitron", sans-serif;
+  --font-body:  "Sora", system-ui, sans-serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-kp:    10px;
+  --radius-kp-lg: 16px;
+  --radius-kp-xl: 24px;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg);
+    background-image: radial-gradient(rgba(43,142,255,.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--color-ink);
+    font-family: var(--font-body);
+  }
+  h1, h2, h3 { color: #fff; }
+  a { color: var(--color-cyan); }
+  a:hover { color: var(--color-brand); }
+
+  /* htmx swaps can leave a moment of nothing, so say something */
+  .htmx-request .htmx-indicator { opacity: 1; }
+  .htmx-indicator { opacity: 0; transition: opacity .2s ease; }
+}
+
+@layer components {
+  .kp-card { @apply bg-card border border-line rounded-[var(--radius-kp-lg)]; }
+  .kp-input {
+    @apply bg-input border border-line rounded-[var(--radius-kp)] px-3 py-2 text-ink text-sm
+           focus:outline-none focus:border-brand w-full;
+  }
+  .kp-btn {
+    @apply inline-flex items-center gap-2 rounded-[var(--radius-kp)] px-4 py-2 text-sm font-semibold
+           bg-brand text-white hover:bg-brand-dk transition-colors cursor-pointer;
+  }
+  .kp-btn-quiet {
+    @apply inline-flex items-center gap-2 rounded-[var(--radius-kp)] px-3 py-1.5 text-sm
+           border border-line-lit text-dim hover:text-ink hover:border-brand transition-colors cursor-pointer;
+  }
+  .kp-th {
+    @apply text-left text-[11px] uppercase tracking-[.09em] text-dim font-semibold
+           px-3 py-2.5 border-b border-line whitespace-nowrap;
+  }
+  .kp-td { @apply px-3 py-2.5 border-b border-line/60 align-top text-sm; }
+  .kp-pill {
+    @apply inline-block text-[11px] uppercase tracking-[.06em] px-2 py-0.5 rounded-full
+           border border-line-lit text-dim whitespace-nowrap;
+  }
+  /* severity always pairs its colour with the written label */
+  .kp-sev { @apply inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[.05em] whitespace-nowrap; }
+  .kp-sev::before { content:""; width:9px; height:9px; border-radius:2px; flex:none; background:currentColor; }
+}

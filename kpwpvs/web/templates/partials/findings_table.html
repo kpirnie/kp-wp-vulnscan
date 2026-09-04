@@ -1,0 +1,41 @@
+<div class="overflow-x-auto kp-card" id="findings-results">
+  <table class="w-full">
+    <thead><tr>
+      <th class="kp-th">Severity</th><th class="kp-th">Slug</th><th class="kp-th">Version</th>
+      <th class="kp-th text-right">Installs</th><th class="kp-th">Issue</th><th class="kp-th">Fix</th><th class="kp-th">Status</th>
+    </tr></thead>
+    <tbody>
+    {% for finding, software, vuln in rows %}
+      <tr class="hover:bg-card-alt/50">
+        <td class="kp-td"><span class="kp-sev text-sev-{{ finding.severity.value }}">{{ finding.severity.value }}</span></td>
+        <td class="kp-td">
+          <a href="/software/{{ software.id }}" class="font-mono text-xs">{{ software.slug }}</a>
+          {% if software.status.value != 'active' %}<span class="kp-pill ml-1">{{ software.status.value }}</span>{% endif %}
+        </td>
+        <td class="kp-td font-mono text-xs">{{ finding.matched_version or "—" }}</td>
+        <td class="kp-td text-right font-mono text-xs">{{ software.active_installs|installs }}</td>
+        <td class="kp-td"><a href="/findings/{{ finding.id }}">{{ vuln.title }}</a>
+          {% if vuln.cve %}<span class="font-mono text-[11px] text-dim ml-1">{{ vuln.cve }}</span>{% endif %}</td>
+        <td class="kp-td font-mono text-xs">
+          {% if finding.fixed_in_version %}<span class="text-ok">{{ finding.fixed_in_version }}</span>
+          {% else %}<span class="text-sev-critical">none</span>{% endif %}
+        </td>
+        <td class="kp-td"><span class="kp-pill">{{ finding.status.value }}</span></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="kp-td text-dim text-center py-8">Nothing matches those filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="flex items-center justify-between mt-4 text-sm text-dim">
+  <div>{{ total|number }} finding{{ "s" if total != 1 }}{% if pages > 1 %} &middot; page {{ page }} of {{ pages }}{% endif %}</div>
+  {% if pages > 1 %}
+  <div class="flex gap-2">
+    {% set base = "/findings?severity=" ~ severity ~ "&state=" ~ state ~ "&kind=" ~ kind ~ "&q=" ~ q %}
+    {% if page > 1 %}<a class="kp-btn-quiet" href="{{ base }}&page={{ page - 1 }}">Previous</a>{% endif %}
+    {% if page < pages %}<a class="kp-btn-quiet" href="{{ base }}&page={{ page + 1 }}">Next</a>{% endif %}
+  </div>
+  {% endif %}
+</div>

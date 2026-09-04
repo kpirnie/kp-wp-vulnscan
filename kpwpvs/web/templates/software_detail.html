@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ software.slug }} &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<a href="/software" class="text-sm text-dim hover:text-cyan">&larr; Catalog</a>
+<div class="flex flex-wrap items-start justify-between gap-4 mt-3 mb-5">
+  <div>
+    <h1 class="font-brand text-xl font-extrabold">{{ software.name }}</h1>
+    <p class="text-dim text-sm mt-1">
+      <span class="font-mono">{{ software.slug }}</span> &middot; {{ software.software_type.value }}
+      &middot; <span class="kp-pill">{{ software.status.value }}</span>
+      {% if software.homepage %} &middot; <a href="{{ software.homepage }}" rel="noopener nofollow" target="_blank">homepage</a>{% endif %}
+    </p>
+  </div>
+  <div class="grid grid-cols-3 gap-3 text-center">
+    <div class="kp-card px-4 py-2"><div class="font-brand text-xl font-extrabold">{{ software.issue_count }}</div><div class="text-[10px] uppercase tracking-wider text-dim">Issues</div></div>
+    <div class="kp-card px-4 py-2"><div class="font-brand text-xl font-extrabold {% if software.open_issue_count %}text-sev-critical{% endif %}">{{ software.open_issue_count }}</div><div class="text-[10px] uppercase tracking-wider text-dim">Open</div></div>
+    <div class="kp-card px-4 py-2"><div class="font-brand text-xl font-extrabold">{{ software.priority_score|round(0)|int }}</div><div class="text-[10px] uppercase tracking-wider text-dim">Score</div></div>
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2">
+    <h3 class="text-sm font-semibold mb-2">Findings</h3>
+    <div class="overflow-x-auto kp-card">
+      <table class="w-full">
+        <thead><tr><th class="kp-th">Severity</th><th class="kp-th">Issue</th><th class="kp-th">Status</th><th class="kp-th">Fix</th></tr></thead>
+        <tbody>
+        {% for finding, vuln in findings %}
+          <tr>
+            <td class="kp-td"><span class="kp-sev text-sev-{{ finding.severity.value }}">{{ finding.severity.value }}</span></td>
+            <td class="kp-td"><a href="/findings/{{ finding.id }}">{{ vuln.title }}</a></td>
+            <td class="kp-td"><span class="kp-pill">{{ finding.status.value }}</span></td>
+            <td class="kp-td font-mono text-xs">{{ finding.fixed_in_version or "—" }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="kp-td text-dim text-center py-6">No findings recorded.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="space-y-6">
+    <div class="kp-card p-5">
+      <h3 class="text-sm font-semibold mb-3">Details</h3>
+      <dl class="text-sm space-y-2">
+        <div class="flex justify-between gap-3"><dt class="text-dim">Version</dt><dd class="font-mono">{{ software.version or "—" }}</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-dim">Installs</dt><dd class="font-mono">{{ software.active_installs|installs }}</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-dim">Requires WP</dt><dd class="font-mono">{{ software.requires_wp or "—" }}</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-dim">Requires PHP</dt><dd class="font-mono">{{ software.requires_php or "—" }}</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-dim">Last updated</dt><dd class="font-mono">{{ software.last_updated|when }}</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-dim">Author</dt><dd class="text-right">{{ software.author or "—" }}</dd></div>
+      </dl>
+    </div>
+    {% if versions %}
+    <div class="kp-card p-5">
+      <h3 class="text-sm font-semibold mb-3">Versions seen</h3>
+      <div class="flex flex-wrap gap-1.5">
+        {% for v in versions %}<span class="kp-pill font-mono {% if v.is_current %}border-ok text-ok{% endif %}">{{ v.version }}</span>{% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if tags %}
+    <div class="kp-card p-5">
+      <h3 class="text-sm font-semibold mb-3">Tags</h3>
+      <div class="flex flex-wrap gap-1.5">{% for t in tags %}<span class="kp-pill">{{ t }}</span>{% endfor %}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Core &middot; {{ site_name }}{% endblock %}
+{% block content %}
+<h1 class="font-brand text-xl font-extrabold mb-1">WordPress core</h1>
+<p class="text-dim text-sm mb-5">Every release wordpress.org has shipped, its own verdict on each, and the issues we matched against it.</p>
+
+{% if not core %}
+<div class="kp-card p-5 text-dim text-sm">Core has not been crawled yet.</div>
+{% else %}
+{% if current_issues %}
+<div class="rounded-[var(--radius-kp-xl)] border border-sev-critical p-6 bg-gradient-to-b from-card-alt to-card mb-6">
+  <div class="text-xs uppercase tracking-wider text-dim">Current release</div>
+  <div class="font-brand text-4xl font-extrabold text-white leading-none mt-1 mb-3">{{ core.version }}</div>
+  <p class="text-sm text-dim mb-3">{{ current_issues|length }} known issue{{ "s" if current_issues|length != 1 }} affect the newest release available, so no installation is unaffected:</p>
+  <div class="overflow-x-auto rounded-[var(--radius-kp)] border border-line">
+    <table class="w-full">
+      <thead><tr><th class="kp-th">Severity</th><th class="kp-th">CVE</th><th class="kp-th">Issue</th></tr></thead>
+      <tbody>
+      {% for finding, vuln in current_issues %}
+      <tr><td class="kp-td"><span class="kp-sev text-sev-{{ finding.severity.value }}">{{ finding.severity.value }}</span></td>
+        <td class="kp-td font-mono text-xs">{{ vuln.cve or "—" }}</td>
+        <td class="kp-td"><a href="/findings/{{ finding.id }}">{{ vuln.title }}</a></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="overflow-x-auto kp-card">
+  <table class="w-full">
+    <thead><tr><th class="kp-th">Version</th><th class="kp-th">wordpress.org status</th><th class="kp-th text-right">Known issues</th></tr></thead>
+    <tbody>
+    {% for release in releases %}
+      <tr class="hover:bg-card-alt/50">
+        <td class="kp-td font-mono text-xs">{{ release.version }}{% if release.is_current %} <span class="kp-pill border-ok text-ok ml-1">current</span>{% endif %}</td>
+        <td class="kp-td"><span class="kp-pill
+          {% if release.release_status.value == 'insecure' %}border-sev-critical text-sev-critical
+          {% elif release.release_status.value == 'outdated' %}border-sev-medium text-sev-medium
+          {% elif release.release_status.value == 'latest' %}border-ok text-ok{% endif %}">{{ release.release_status.value }}</span></td>
+        <td class="kp-td text-right font-mono text-xs {% if release.issue_count > 10 %}text-sev-critical{% endif %}">{{ release.issue_count }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
