@@ -23,7 +23,7 @@ from sqlalchemy import select
 from kpwpvs import __version__
 from kpwpvs.core.config import BootstrapConfig, load_config
 from kpwpvs.core.crypto import SecretBox
-from kpwpvs.core.db import init_engine, ping, session_scope
+from kpwpvs.core.db import dispose, init_engine, ping, session_scope
 from kpwpvs.core.logging import setup_logging
 from kpwpvs.core.migrate import current_revision, downgrade, head_revision, is_current, upgrade
 from kpwpvs.models import Feed, RunStatus, RunTrigger, User, UserRole
@@ -599,27 +599,30 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(config.debug or args.debug)
     logger.debug("configuration loaded, running command %s", args.command)
 
-    # dispatch to the handler
-    if args.command == "db":
-        return handle_db(config, args)
-    if args.command == "crawl":
-        return handle_crawl(config, args)
-    if args.command == "feeds":
-        return handle_feeds(config, args)
-    if args.command == "match":
-        return handle_match(config, args)
-    if args.command == "report":
-        return handle_report(config, args)
-    if args.command == "scan":
-        return handle_scan(config, args)
-    if args.command == "user":
-        return handle_user(config, args)
-    if args.command == "web":
-        return handle_web(config, args)
+    # dispatch to the handler, always closing the pool on the way out.
+    # a short lived command that exits without disposing leaves the server
+    # to notice the socket went away by itself, which it logs as an
+    # aborted connection. a healthcheck every minute makes that noisy
+    handlers = {
+        "db": handle_db,
+        "crawl": handle_crawl,
+        "feeds": handle_feeds,
+        "match": handle_match,
+        "report": handle_report,
+        "scan": handle_scan,
+        "user": handle_user,
+        "web": handle_web,
+    }
 
-    # the pipeline stages land here as each one is built
-    logger.error("command '%s' is not implemented yet", args.command)
-    return 1
+    handler = handlers.get(args.command)
+    if handler is None:
+        logger.error("command '%s' is not implemented yet", args.command)
+        return 1
+
+    try:
+        return handler(config, args)
+    finally:
+        dispose()
 
 
 # run it when called directly

@@ -79,13 +79,19 @@ podman exec kpwpvs kpwpvs scan
 That takes a few minutes the first time, because it seeds the whole catalog.
 Every run after is incremental and takes seconds.
 
-### The volume is not optional
+### Name the volume
 
-The container refuses to start unless `/var/lib/mysql` is a real mount. The
-catalog takes minutes to rebuild and the findings carry work people have done
-by hand; writing that into the container layer would lose all of it on the
-next image pull, silently. Set `KPWPVS_ALLOW_EPHEMERAL_DB=true` if you
-genuinely want throwaway storage.
+The container refuses to start on an anonymous volume. The catalog takes
+minutes to rebuild and the findings carry work people have done by hand, and
+an anonymous volume is discarded by a `compose down -v` or a `rm -v` without
+a prompt. Name one instead:
+
+```yaml
+volumes:
+  - kpwpvs-db:/var/lib/mysql
+```
+
+Set `KPWPVS_ALLOW_EPHEMERAL_DB=true` if you genuinely want throwaway storage.
 
 ## Scheduling
 
@@ -220,8 +226,10 @@ rather than dropped. That is 8,600 plugins and 2,154 themes.
 
 ## Requirements
 
-Nothing but a container runtime to run it. Python 3.14.7 and MariaDB 12.3 are
-inside the image.
+Nothing but a container runtime to run it. The image is built on the official
+`mariadb` image, so MariaDB 12.3.3 comes from the people who write it, and
+Python 3.14.7 is an Astral standalone build rather than a distribution
+package, since neither Ubuntu nor deadsnakes carries that patch level.
 
 For development: Python 3.14.7, a MariaDB or MySQL to point at, and the
 standalone Tailwind CLI if you are changing the stylesheet.

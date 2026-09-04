@@ -17,25 +17,51 @@ if [ "${KPWPVS_DATABASE_EMBEDDED:-true}" = "false" ]; then
     exit 0
 fi
 
-# the catalog takes minutes to rebuild and the findings carry work people
-# have done by hand. writing that into the container layer would lose all
-# of it on the next image pull, silently, so refuse instead
-if ! mountpoint -q "$DATA_DIR" 2>/dev/null; then
-    if [ "${KPWPVS_ALLOW_EPHEMERAL_DB:-false}" != "true" ]; then
-        cat >&2 <<'MSG'
-[init-db] FATAL: /var/lib/mysql is not a mounted volume.
+# The catalog takes minutes to rebuild and the findings carry work people
+# have done by hand. Losing that silently is the failure worth guarding.
+#
+# The mariadb base image declares VOLUME /var/lib/mysql, and a child image
+# cannot undo that, so the directory is always a mountpoint whether anyone
+# asked for a volume or not. Checking for a mountpoint therefore proves
+# nothing. What actually matters is whether the volume is anonymous:
+# those get a sixty-four character hex name, are invisible in
+# `volume ls` output that means anything, and are discarded by a
+# `down -v` or a `rm -v` without so much as a prompt.
+MOUNT_SOURCE="$(awk '$5 == "/var/lib/mysql" { print $4 }' /proc/self/mountinfo 2>/dev/null | tail -1)"
+VOLUME_NAME="$(basename "$(dirname "${MOUNT_SOURCE:-/}")" 2>/dev/null || echo "")"
 
-Everything this tool builds would be lost the next time the image is
-pulled, without warning. Mount a volume there:
+case "$VOLUME_NAME" in
+    # sixty-four hex characters is how both docker and podman name a
+    # volume nobody chose a name for
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+        if [ "${#VOLUME_NAME}" = "64" ] && [ "${KPWPVS_ALLOW_EPHEMERAL_DB:-false}" != "true" ]; then
+            cat >&2 <<'MSG'
+[init-db] FATAL: /var/lib/mysql is an anonymous volume.
+
+The base image always creates one, so this is what you get when no
+volume was named. It is easy to lose: a `compose down -v`, or a
+`rm -v`, discards it without a prompt, and rebuilding the catalog
+takes minutes. Any findings anyone has worked go with it.
+
+Name one instead:
 
     podman run -v kpwpvs-db:/var/lib/mysql ...
+
+or in compose:
+
+    volumes:
+      - kpwpvs-db:/var/lib/mysql
 
 Set KPWPVS_ALLOW_EPHEMERAL_DB=true if you genuinely want throwaway
 storage, for a test run or a demo.
 MSG
-        exit 1
-    fi
-    echo "[init-db] WARNING: /var/lib/mysql is not a volume, this data will not survive"
+            exit 1
+        fi
+        ;;
+esac
+
+if [ -n "$VOLUME_NAME" ] && [ "${#VOLUME_NAME}" != "64" ]; then
+    echo "[init-db] storage: ${MOUNT_SOURCE}"
 fi
 
 if [ -z "$DB_PASS" ]; then
