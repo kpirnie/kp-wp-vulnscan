@@ -1,0 +1,16 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# local config and runtime data
+config/config.yaml
+data/
+reports/
+*.log
+
+# tooling
+.ruff_cache/
+.mypy_cache/

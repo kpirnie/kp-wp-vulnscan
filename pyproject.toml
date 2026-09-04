@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling", "hatch-requirements-txt"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kp-wp-vulnscan"
+version = "0.1.0"
+description = "WordPress plugin vulnerability scanner and reporter"
+readme = "readme.md"
+requires-python = ">=3.14"
+authors = [{ name = "Kevin Pirnie", email = "me@kpirnie.com" }]
+dynamic = ["dependencies"]
+
+[project.scripts]
+kpwpvs = "kpwpvs.__main__:main"
+
+[tool.hatch.metadata.hooks.requirements_txt]
+files = ["requirements.txt"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["kpwpvs"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
