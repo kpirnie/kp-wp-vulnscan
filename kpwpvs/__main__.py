@@ -28,6 +28,7 @@ from kpwpvs.core.migrate import current_revision, downgrade, head_revision, is_c
 from kpwpvs.models import Feed
 from kpwpvs.services.crawler import Crawler
 from kpwpvs.services.feeds import FeedService
+from kpwpvs.services.matcher import Matcher
 from kpwpvs.services.settings_service import SettingsService
 
 logger = logging.getLogger(__name__)
@@ -280,6 +281,42 @@ def handle_feeds(config: BootstrapConfig, args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_match(config: BootstrapConfig, args: argparse.Namespace) -> int:
+    """
+    Handle the matching subcommand
+
+    Joins the vulnerability feeds onto the catalog, opens and resolves
+    findings, and reranks everything.
+
+    @param config: BootstrapConfig The bootstrap configuration
+    @param args: argparse.Namespace The parsed command line arguments
+    @return int: The process exit code, zero on success
+    """
+
+    # the schema has to be current before we touch anything
+    if not ping(config):
+        logger.error("cannot reach the database at %s:%s", config.database.host, config.database.port)
+        return 1
+    if not is_current(config):
+        logger.error("database schema is out of date, run 'kpwpvs db upgrade' first")
+        return 1
+
+    init_engine(config)
+
+    # run the pass
+    try:
+        with session_scope() as session:
+            matcher = Matcher(session, SettingsService(session))
+            stats = matcher.match()
+    except Exception as exc:
+        logger.error("matching failed: %s", exc, exc_info=logger.isEnabledFor(logging.DEBUG))
+        return 1
+
+    logger.info("%s", stats.as_dict())
+
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """
     Application entry point
@@ -314,6 +351,8 @@ def main(argv: list[str] | None = None) -> int:
         return handle_crawl(config, args)
     if args.command == "feeds":
         return handle_feeds(config, args)
+    if args.command == "match":
+        return handle_match(config, args)
 
     # the pipeline stages land here as each one is built
     logger.error("command '%s' is not implemented yet", args.command)

@@ -21,7 +21,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
-    Float,
+    Double,
     ForeignKey,
     Index,
     Integer,
@@ -126,7 +126,7 @@ class Software(TimestampMixin, Base):
     issue_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, index=True)
     open_issue_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     critical_issue_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    priority_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    priority_score: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)
 
     # crawl bookkeeping, last_seen tells us when it fell out of the catalog
     first_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
