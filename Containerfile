@@ -11,13 +11,13 @@
 # package, because ubuntu noble has no 3.14 and deadsnakes only carries
 # 3.14.6. This project pins 3.14.7 deliberately.
 
-ARG MARIADB_TAG=12.3.3-noble
+ARG MARIADB_TAG=latest
 ARG PYTHON_VERSION=3.14.7
 
 
 # --- stage 1: the stylesheet ------------------------------------------
 # tailwind needs node, and node has no business in the runtime image
-FROM node:22-trixie-slim AS css
+FROM docker.io/node:22-trixie-slim AS css
 
 WORKDIR /build
 COPY kpwpvs/web/assets/app.css ./kpwpvs/web/assets/app.css
@@ -26,16 +26,16 @@ COPY kpwpvs/web/templates ./kpwpvs/web/templates
 # tailwind scans the templates for the classes actually used, so they have
 # to be present here or the output is nearly empty
 RUN npm install --no-save @tailwindcss/cli@4.3.3 tailwindcss@4.3.3 \
- && npx @tailwindcss/cli \
-      --input  kpwpvs/web/assets/app.css \
-      --output /build/app.css \
-      --minify
+    && npx @tailwindcss/cli \
+    --input  kpwpvs/web/assets/app.css \
+    --output /build/app.css \
+    --minify
 
 
 # --- stage 2: python and the wheels -----------------------------------
 # built on the same base as the runtime, so the interpreter and every
 # compiled wheel are linked against the glibc they will actually run on
-FROM mariadb:${MARIADB_TAG} AS python
+FROM docker.io/mariadb:${MARIADB_TAG} AS python
 ARG PYTHON_VERSION
 
 COPY --from=ghcr.io/astral-sh/uv:0.12.9 /uv /usr/local/bin/uv
@@ -59,14 +59,14 @@ RUN set -eux; \
 
 
 # --- stage 3: the runtime ---------------------------------------------
-FROM mariadb:${MARIADB_TAG}
+FROM docker.io/mariadb:${MARIADB_TAG}
 ARG S6_OVERLAY_VERSION=3.2.1.0
 ARG TARGETARCH=amd64
 
 LABEL org.opencontainers.image.title="KP WP VulnScan" \
-      org.opencontainers.image.description="WordPress core and plugin vulnerability scanner and reporter" \
-      org.opencontainers.image.source="https://github.com/kpirnie/kp-wp-vulnscan" \
-      org.opencontainers.image.licenses="MIT"
+    org.opencontainers.image.description="WordPress core and plugin vulnerability scanner and reporter" \
+    org.opencontainers.image.source="https://github.com/kpirnie/kp-wp-vulnscan" \
+    org.opencontainers.image.licenses="MIT"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PATH="/opt/venv/bin:$PATH" \
@@ -92,14 +92,14 @@ RUN set -eux; \
 # reaping behave and a stop actually stops things
 RUN set -eux; \
     case "${TARGETARCH}" in \
-        amd64) S6_ARCH=x86_64 ;; \
-        arm64) S6_ARCH=aarch64 ;; \
-        *) echo "unsupported architecture ${TARGETARCH}" >&2; exit 1 ;; \
+    amd64) S6_ARCH=x86_64 ;; \
+    arm64) S6_ARCH=aarch64 ;; \
+    *) echo "unsupported architecture ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
     curl -fsSL "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
-        | tar -C / -Jxpf -; \
+    | tar -C / -Jxpf -; \
     curl -fsSL "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" \
-        | tar -C / -Jxpf -; \
+    | tar -C / -Jxpf -; \
     apt-get purge -y --auto-remove curl; \
     rm -rf /var/lib/apt/lists/*
 
