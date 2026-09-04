@@ -30,6 +30,24 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
+def escape_url(url: str) -> str:
+    """
+    Make a connection url safe to store in alembic's config
+
+    Alembic's Config is a ConfigParser with interpolation switched on, so
+    a percent sign in a value is a format character rather than a literal
+    one. Any password containing a character that url-quotes, which is
+    most punctuation, produces percent escapes and blows up with an
+    invalid interpolation syntax error. Doubling them is what
+    ConfigParser expects, and it reads back as the original.
+
+    @param url: str The connection url
+    @return str: The url with its percent signs escaped
+    """
+
+    return url.replace("%", "%%")
+
+
 def build_alembic_config(config: BootstrapConfig) -> Config:
     """
     Build an alembic configuration pointed at our migrations
@@ -47,7 +65,7 @@ def build_alembic_config(config: BootstrapConfig) -> Config:
     # wire it up, the url comes from us rather than the ini
     alembic_config = Config(str(PROJECT_ROOT / "alembic.ini"))
     alembic_config.set_main_option("script_location", str(script_location))
-    alembic_config.set_main_option("sqlalchemy.url", config.database.url)
+    alembic_config.set_main_option("sqlalchemy.url", escape_url(config.database.url))
 
     return alembic_config
 

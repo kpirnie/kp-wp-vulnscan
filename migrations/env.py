@@ -15,6 +15,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from kpwpvs.core.config import load_config
+from kpwpvs.core.migrate import escape_url
 from kpwpvs.models import Base
 
 # the alembic config object, gives us access to the ini values
@@ -23,8 +24,10 @@ config = context.config
 # what autogenerate compares against
 target_metadata = Base.metadata
 
-# the url always comes from the environment, never the ini file
-config.set_main_option("sqlalchemy.url", load_config().database.url)
+# the url always comes from the environment, never the ini file. the
+# percent signs need escaping because this config is a ConfigParser with
+# interpolation on, and a quoted password is full of them
+config.set_main_option("sqlalchemy.url", escape_url(load_config().database.url))
 
 
 def run_migrations_offline() -> None:

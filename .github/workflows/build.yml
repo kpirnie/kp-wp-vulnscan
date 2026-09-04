@@ -64,7 +64,7 @@ jobs:
           MARIADB_ROOT_PASSWORD: ci
           MARIADB_DATABASE: kpwpvs
           MARIADB_USER: kpwpvs
-          MARIADB_PASSWORD: ci
+          MARIADB_PASSWORD: "c^i@#t%e*s+t/p:a=s&s"
         ports: ["3306:3306"]
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
@@ -74,7 +74,9 @@ jobs:
       KPWPVS_DATABASE_PORT: "3306"
       KPWPVS_DATABASE_NAME: kpwpvs
       KPWPVS_DATABASE_USER: kpwpvs
-      KPWPVS_DATABASE_PASSWORD: ci
+      # deliberately full of characters that url-quote. a percent escape in
+      # the quoted url used to break alembic, whose config interpolates them
+      KPWPVS_DATABASE_PASSWORD: "c^i@#t%e*s+t/p:a=s&s"
       KPWPVS_SECRET_KEY: ci-secret-key-not-used-anywhere-real
     steps:
       - uses: actions/checkout@v4
