@@ -1,0 +1,19 @@
+#!/command/with-contenv sh
+# Wait for the database, then bring the schema up to head.
+set -eu
+
+echo "[init-schema] waiting for the database"
+kpwpvs db wait --timeout 120
+
+echo "[init-schema] applying migrations"
+kpwpvs db upgrade
+
+# a fresh install has nobody who can sign in, so say how to fix that
+if ! kpwpvs user list 2>/dev/null | grep -q admin; then
+    cat <<'MSG'
+[init-schema] No admin account exists yet. Create one with:
+
+    podman exec -it <container> sh -c 'printf "%s\n" "your-password" | kpwpvs user add <name> --role admin'
+
+MSG
+fi

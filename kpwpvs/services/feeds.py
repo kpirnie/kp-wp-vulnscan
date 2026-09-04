@@ -102,11 +102,7 @@ class FeedService:
         @return list[Feed]: The feeds to sync, most trusted first
         """
 
-        return list(
-            self._session.execute(
-                select(Feed).where(Feed.enabled.is_(True)).order_by(Feed.priority)
-            ).scalars()
-        )
+        return list(self._session.execute(select(Feed).where(Feed.enabled.is_(True)).order_by(Feed.priority)).scalars())
 
     def _api_key(self, feed: Feed) -> str:
         """
@@ -319,9 +315,7 @@ class FeedService:
 
         # clear what was there
         self._session.execute(
-            VulnerabilityAffect.__table__.delete().where(
-                VulnerabilityAffect.vulnerability_id == vulnerability.id
-            )
+            VulnerabilityAffect.__table__.delete().where(VulnerabilityAffect.vulnerability_id == vulnerability.id)
         )
 
         # then write the current set, skipping exact duplicates

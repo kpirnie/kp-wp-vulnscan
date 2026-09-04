@@ -28,7 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
+from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin, enum_column
 from kpwpvs.models.vulnerability import Severity
 
 
@@ -167,7 +167,7 @@ class Finding(TimestampMixin, Base):
     )
 
     # what hangs off it
-    events: Mapped[list["FindingEvent"]] = relationship(
+    events: Mapped[list[FindingEvent]] = relationship(
         back_populates="finding",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -228,7 +228,7 @@ class FindingEvent(Base):
         server_default=func.now(),
     )
 
-    finding: Mapped["Finding"] = relationship(back_populates="events")
+    finding: Mapped[Finding] = relationship(back_populates="events")
 
     def __repr__(self) -> str:
         """

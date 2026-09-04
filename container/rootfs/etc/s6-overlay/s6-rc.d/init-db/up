@@ -1,0 +1,3 @@
+#!/command/with-contenv sh
+# Prepare the database directory before anything tries to use it.
+exec /usr/local/bin/kpwpvs-init-db

@@ -1,0 +1,81 @@
+# KP WP VulnScan
+#
+# One service, because the database lives in the same container. The
+# volumes are not optional: /var/lib/mysql holds the catalog and every
+# finding anybody has worked, and the container refuses to start without
+# it rather than quietly writing somewhere that vanishes on the next pull.
+
+services:
+  kpwpvs:
+    image: ghcr.io/kpirnie/kp-wp-vulnscan:latest
+    # build the image locally instead with:
+    #   podman compose build
+    build:
+      context: .
+      dockerfile: Containerfile
+    container_name: kpwpvs
+    restart: unless-stopped
+
+    environment:
+      # the database. host, port, name and user have sensible defaults
+      # baked into the image, so in practice only the password matters
+      KPWPVS_DATABASE_PASSWORD: "change-me-before-you-deploy-this"
+
+      # signs sessions and encrypts stored api keys. generate one with:
+      #   python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+      # changing it invalidates every session and every stored api key
+      KPWPVS_SECRET_KEY: "change-me-too"
+
+      # point at an existing mariadb or mysql instead of the bundled one
+      # KPWPVS_DATABASE_EMBEDDED: "false"
+      # KPWPVS_DATABASE_HOST: "db.example.internal"
+
+      # let the container schedule itself. leave it unset to run scans
+      # from the host's cron instead, which is what the readme suggests:
+      #   0 3 * * 1  podman exec kpwpvs kpwpvs scan
+      # KPWPVS_SCHEDULE: "0 3 * * 1"
+
+      # how much memory mariadb gives its buffer pool
+      KPWPVS_INNODB_BUFFER_POOL: "256M"
+
+    # every value above can be supplied as a file instead, which keeps it
+    # out of the process environment entirely
+    # secrets:
+    #   - db_password
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      # required. the catalog is 70k plugins and takes minutes to rebuild,
+      # and the findings carry work people have done by hand
+      - kpwpvs-db:/var/lib/mysql
+
+      # crawl checkpoints and scratch work
+      - kpwpvs-data:/data
+
+      # optional. json and html reports are only written when this is
+      # mounted, and skipped silently when it is not
+      - ./reports:/reports
+
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/kpwpvs-health"]
+      interval: 60s
+      timeout: 10s
+      start_period: 90s
+      retries: 3
+
+    # mariadb and the interface run under s6 in here, and the crawl holds
+    # the whole feed in memory for a moment while it parses
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+volumes:
+  kpwpvs-db:
+  kpwpvs-data:
+
+# secrets:
+#   db_password:
+#     file: ./secrets/db_password

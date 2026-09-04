@@ -25,7 +25,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
+from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin, enum_column
 
 
 class ReportFormat(enum.StrEnum):

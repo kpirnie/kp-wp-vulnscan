@@ -138,9 +138,7 @@ def parse_record(payload: dict[str, Any]) -> VulnRecord | None:
         if cwe_id:
             break
 
-    references = [
-        ref.get("url") for ref in (cna.get("references") or []) if isinstance(ref.get("url"), str)
-    ]
+    references = [ref.get("url") for ref in (cna.get("references") or []) if isinstance(ref.get("url"), str)]
 
     record = VulnRecord(
         source_id=cve_id.strip(),
@@ -251,7 +249,6 @@ class CveClient:
 
         with httpx.Client(timeout=self._timeout, follow_redirects=True) as client:
             for cve_id in cve_ids:
-
                 # be a good guest, there is no key throttling us here
                 time.sleep(REQUEST_DELAY)
 

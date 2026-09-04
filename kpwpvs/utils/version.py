@@ -66,7 +66,6 @@ def parse(version: str) -> tuple[list[int], int, int]:
     in_prerelease = False
 
     for token in TOKEN_RE.findall(cleaned):
-
         # a numeric run, it either extends the release or numbers the prerelease
         if token.isdigit():
             if in_prerelease:

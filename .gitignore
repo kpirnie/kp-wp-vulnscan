@@ -17,3 +17,8 @@ reports/
 
 # alembic bytecode
 migrations/versions/__pycache__/
+
+# local container build scratch
+Containerfile.sandbox
+proxy-ca.crt
+reports/

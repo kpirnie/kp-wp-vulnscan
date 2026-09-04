@@ -206,10 +206,8 @@ class Matcher:
             .where(
                 Software.software_type != SoftwareType.CORE,
                 Software.version_key.is_not(None),
-                (VulnerabilityAffect.from_key.is_(None))
-                | (Software.version_key >= VulnerabilityAffect.from_key),
-                (VulnerabilityAffect.to_key.is_(None))
-                | (Software.version_key <= VulnerabilityAffect.to_key),
+                (VulnerabilityAffect.from_key.is_(None)) | (Software.version_key >= VulnerabilityAffect.from_key),
+                (VulnerabilityAffect.to_key.is_(None)) | (Software.version_key <= VulnerabilityAffect.to_key),
             )
         )
 
@@ -255,8 +253,7 @@ class Matcher:
                 Software.software_type == SoftwareType.CORE,
                 (VulnerabilityAffect.from_key.is_(None))
                 | (SoftwareVersion.version_key >= VulnerabilityAffect.from_key),
-                (VulnerabilityAffect.to_key.is_(None))
-                | (SoftwareVersion.version_key <= VulnerabilityAffect.to_key),
+                (VulnerabilityAffect.to_key.is_(None)) | (SoftwareVersion.version_key <= VulnerabilityAffect.to_key),
             )
         )
 
@@ -282,9 +279,7 @@ class Matcher:
         # what is already on the books for core
         existing = {
             (f.software_id, f.vulnerability_id, f.software_version_id): f
-            for f in self._session.execute(
-                select(Finding).where(Finding.software_version_id.is_not(None))
-            ).scalars()
+            for f in self._session.execute(select(Finding).where(Finding.software_version_id.is_not(None))).scalars()
         }
 
         matched = 0
@@ -361,9 +356,7 @@ class Matcher:
 
         # stamp each release with how many issues it carries, which is the
         # number that actually goes in front of somebody
-        self._session.execute(
-            text("UPDATE software_versions SET issue_count = 0 WHERE issue_count <> 0")
-        )
+        self._session.execute(text("UPDATE software_versions SET issue_count = 0 WHERE issue_count <> 0"))
         if per_version:
             statement = (
                 SoftwareVersion.__table__.update()
@@ -406,9 +399,7 @@ class Matcher:
         # everything currently on the books, so we can tell what went away
         existing = {
             (finding.software_id, finding.vulnerability_id): finding
-            for finding in self._session.execute(
-                select(Finding).where(Finding.software_version_id.is_(None))
-            ).scalars()
+            for finding in self._session.execute(select(Finding).where(Finding.software_version_id.is_(None))).scalars()
         }
         still_matching: set[tuple[int, int]] = set()
 
@@ -606,7 +597,8 @@ class Matcher:
         # these are inner joins with a changed check rather than a blanket
         # update over the whole catalog, writing all eighty thousand rows
         # every pass costs two minutes in index maintenance alone
-        self._session.execute(text("""
+        self._session.execute(
+            text("""
             UPDATE software s
             JOIN (
                 SELECT va.slug, va.software_type,
@@ -621,10 +613,12 @@ class Matcher:
                 s.critical_issue_count = counts.critical
             WHERE s.issue_count <> counts.total
                OR s.critical_issue_count <> counts.critical
-        """))
+        """)
+        )
 
         # and zero anything that used to have counts and no longer does
-        self._session.execute(text("""
+        self._session.execute(
+            text("""
             UPDATE software s
             LEFT JOIN (
                 SELECT DISTINCT slug, software_type FROM vulnerability_affects
@@ -632,10 +626,12 @@ class Matcher:
             SET s.issue_count = 0, s.critical_issue_count = 0
             WHERE known.slug IS NULL
               AND (s.issue_count <> 0 OR s.critical_issue_count <> 0)
-        """))
+        """)
+        )
 
         # how many are actually open right now, same treatment
-        self._session.execute(text("""
+        self._session.execute(
+            text("""
             UPDATE software s
             JOIN (
                 SELECT software_id, COUNT(*) AS open_count
@@ -645,10 +641,12 @@ class Matcher:
             ) f ON f.software_id = s.id
             SET s.open_issue_count = f.open_count
             WHERE s.open_issue_count <> f.open_count
-        """))
+        """)
+        )
 
         # and zero the ones with nothing open any more
-        self._session.execute(text("""
+        self._session.execute(
+            text("""
             UPDATE software s
             LEFT JOIN (
                 SELECT DISTINCT software_id FROM findings
@@ -656,7 +654,8 @@ class Matcher:
             ) f ON f.software_id = s.id
             SET s.open_issue_count = 0
             WHERE f.software_id IS NULL AND s.open_issue_count <> 0
-        """))
+        """)
+        )
 
         self._session.commit()
 
@@ -667,7 +666,8 @@ class Matcher:
         weight_installs = self._weights.get("weight_installs", 1.5)
         weight_abandoned = self._weights.get("weight_abandoned", 1.25)
 
-        severity_mix = self._session.execute(text("""
+        severity_mix = self._session.execute(
+            text("""
             SELECT s.id, s.active_installs, s.status, s.issue_count, v.severity, COUNT(*) AS n
               FROM software s
               JOIN vulnerability_affects va
@@ -675,24 +675,21 @@ class Matcher:
               JOIN vulnerabilities v ON v.id = va.vulnerability_id
              WHERE s.issue_count > 0
              GROUP BY s.id, s.active_installs, s.status, s.issue_count, v.severity
-        """)).all()
+        """)
+        ).all()
 
         # fold the severity rows back together per entry
         scores: dict[int, float] = {}
         context: dict[int, tuple[int, str, int]] = {}
         for software_id, installs, status, issue_count, severity, count in severity_mix:
-            scores[software_id] = scores.get(software_id, 0.0) + (
-                SEVERITY_POINTS.get(Severity(severity), 0.0) * count
-            )
+            scores[software_id] = scores.get(software_id, 0.0) + (SEVERITY_POINTS.get(Severity(severity), 0.0) * count)
             context[software_id] = (installs or 0, status, issue_count or 0)
 
         # what the scores are now, so we only write the ones that moved.
         # on a steady week almost nothing does, and each write is its own
         # statement
         current = dict(
-            self._session.execute(
-                select(Software.id, Software.priority_score).where(Software.issue_count > 0)
-            ).all()
+            self._session.execute(select(Software.id, Software.priority_score).where(Software.issue_count > 0)).all()
         )
 
         # then the actual formula
@@ -704,11 +701,7 @@ class Matcher:
             # hundred installs matters far more than a million and two
             reach = math.log10(installs + 1)
 
-            score = (
-                (issue_count * weight_issue)
-                + (severity_points * weight_severity)
-                + (reach * weight_installs)
-            )
+            score = (issue_count * weight_issue) + (severity_points * weight_severity) + (reach * weight_installs)
 
             # nothing is coming to save an unmaintained plugin
             if status in [s.value for s in UNMAINTAINED]:

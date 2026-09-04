@@ -13,7 +13,6 @@ migrations stable.
 
 # setup the imports
 from datetime import datetime
-
 from enum import Enum as PyEnum
 
 from sqlalchemy import DateTime, Enum, MetaData, func

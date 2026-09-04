@@ -92,7 +92,7 @@ class SettingsService:
         # everything non secret is stored json encoded so the type survives
         try:
             value = json.loads(raw)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             logger.warning("setting %s holds a value that will not decode, using the default", definition.key)
             return definition.default
 
@@ -106,7 +106,7 @@ class SettingsService:
                 return bool(value)
             if definition.type is SettingType.CHOICE:
                 return value if value in definition.choices else definition.default
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             logger.warning("setting %s holds a %s that will not coerce, using the default", definition.key, type(value))
             return definition.default
 

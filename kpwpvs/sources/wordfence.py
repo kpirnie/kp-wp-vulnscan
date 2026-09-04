@@ -227,7 +227,6 @@ class WordfenceClient:
             # stream it down rather than buffering the whole body
             with httpx.Client(timeout=self._timeout, follow_redirects=True) as client:
                 with client.stream("GET", self._url, headers=self._headers()) as response:
-
                     # tell the common failures apart, they need very
                     # different things from whoever is reading the log
                     if response.status_code == 429:
@@ -238,9 +237,7 @@ class WordfenceClient:
                         )
 
                     if response.status_code in (401, 403):
-                        raise FeedUnauthorized(
-                            "the feed rejected our api key, check it on the feeds page"
-                        )
+                        raise FeedUnauthorized("the feed rejected our api key, check it on the feeds page")
 
                     if response.status_code == 410:
                         raise httpx.HTTPStatusError(

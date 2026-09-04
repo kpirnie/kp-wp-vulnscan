@@ -14,7 +14,7 @@ renders itself off this registry rather than a hand written form.
 
 # setup the imports
 import enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -91,7 +91,6 @@ SETTINGS: tuple[SettingDef, ...] = (
         description="Shown in the interface header and in report titles.",
         group="general",
     ),
-
     # --- crawler ---------------------------------------------------------
     SettingDef(
         key="crawler.user_agent",
@@ -181,7 +180,6 @@ SETTINGS: tuple[SettingDef, ...] = (
         minimum=90,
         maximum=3650,
     ),
-
     # --- scoring ---------------------------------------------------------
     SettingDef(
         key="scoring.weight_issue_count",
@@ -223,7 +221,6 @@ SETTINGS: tuple[SettingDef, ...] = (
         minimum=0.0,
         maximum=10.0,
     ),
-
     # --- reporting -------------------------------------------------------
     SettingDef(
         key="reporting.output_dir",
@@ -259,7 +256,6 @@ SETTINGS: tuple[SettingDef, ...] = (
         minimum=0,
         maximum=1000,
     ),
-
     # --- notifications ---------------------------------------------------
     SettingDef(
         key="webhook.enabled",
@@ -305,7 +301,6 @@ SETTINGS: tuple[SettingDef, ...] = (
         group="webhook",
         choices=("low", "medium", "high", "critical"),
     ),
-
     # --- web -------------------------------------------------------------
     SettingDef(
         key="web.host",
@@ -330,7 +325,10 @@ SETTINGS: tuple[SettingDef, ...] = (
         type=SettingType.BOOLEAN,
         default=True,
         label="Require sign in",
-        description="Leave on unless something in front of this is doing the authenticating. Off means every visitor has full access.",
+        description=(
+            "Leave on unless something in front of this is doing the authenticating. "
+            "Off means every visitor has full access."
+        ),
         group="web",
     ),
     SettingDef(
@@ -371,7 +369,6 @@ SETTINGS: tuple[SettingDef, ...] = (
         minimum=1,
         maximum=1440,
     ),
-
     # --- ai --------------------------------------------------------------
     SettingDef(
         key="ai.enabled",

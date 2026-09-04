@@ -78,7 +78,7 @@ def verify_password(encoded: str | None, password: str) -> bool:
 
     try:
         _hasher.verify(target, password)
-    except (VerifyMismatchError, InvalidHashError):
+    except VerifyMismatchError, InvalidHashError:
         return False
     except Exception as exc:
         logger.warning("password verification failed unexpectedly: %s", exc)
@@ -176,9 +176,7 @@ def resolve_session(session: Session, token: str | None) -> User | None:
     if not token:
         return None
 
-    row = session.execute(
-        select(UserSession).where(UserSession.token_hash == hash_token(token))
-    ).scalar_one_or_none()
+    row = session.execute(select(UserSession).where(UserSession.token_hash == hash_token(token))).scalar_one_or_none()
 
     # unknown, revoked, or expired all mean the same thing to the caller
     if row is None or row.revoked_at is not None or row.expires_at < datetime.now():
@@ -208,9 +206,7 @@ def revoke_session(session: Session, token: str | None) -> None:
     if not token:
         return
 
-    row = session.execute(
-        select(UserSession).where(UserSession.token_hash == hash_token(token))
-    ).scalar_one_or_none()
+    row = session.execute(select(UserSession).where(UserSession.token_hash == hash_token(token))).scalar_one_or_none()
 
     if row is not None:
         row.revoked_at = datetime.now()
@@ -228,9 +224,7 @@ def purge_expired_sessions(session: Session) -> int:
     @return int: How many rows were removed
     """
 
-    result = session.execute(
-        UserSession.__table__.delete().where(UserSession.expires_at < datetime.now())
-    )
+    result = session.execute(UserSession.__table__.delete().where(UserSession.expires_at < datetime.now()))
     session.commit()
 
     return result.rowcount or 0

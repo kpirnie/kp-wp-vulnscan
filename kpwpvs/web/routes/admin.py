@@ -20,6 +20,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from kpwpvs.core.settings import SETTING_GROUPS, group_of
 from kpwpvs.models import (
     AuditLog,
     Feed,
@@ -28,7 +29,6 @@ from kpwpvs.models import (
     User,
     UserRole,
 )
-from kpwpvs.core.settings import SETTING_GROUPS, group_of
 from kpwpvs.services.settings_service import SettingsService
 from kpwpvs.web.deps import get_session, get_settings, require_admin, require_manager
 from kpwpvs.web.security import (
@@ -101,9 +101,11 @@ async def run_history(
     # the stages for those runs, grouped so the template can nest them
     stages: dict[int, list[RunStage]] = {}
     if runs:
-        rows = session.execute(
-            select(RunStage).where(RunStage.run_id.in_([r.id for r in runs])).order_by(RunStage.id)
-        ).scalars().all()
+        rows = (
+            session.execute(select(RunStage).where(RunStage.run_id.in_([r.id for r in runs])).order_by(RunStage.id))
+            .scalars()
+            .all()
+        )
         for stage in rows:
             stages.setdefault(stage.run_id, []).append(stage)
 
@@ -435,9 +437,11 @@ async def update_user(
         )
 
     # nor the last admin standing
-    remaining_admins = session.execute(
-        select(User).where(User.role == UserRole.ADMIN, User.is_active.is_(True), User.id != target.id)
-    ).scalars().all()
+    remaining_admins = (
+        session.execute(select(User).where(User.role == UserRole.ADMIN, User.is_active.is_(True), User.id != target.id))
+        .scalars()
+        .all()
+    )
 
     if target.role is UserRole.ADMIN and not remaining_admins and (new_role is not UserRole.ADMIN or not is_active):
         raise HTTPException(
@@ -508,9 +512,7 @@ async def reset_password(
     from kpwpvs.models import UserSession
 
     session.execute(
-        UserSession.__table__.update()
-        .where(UserSession.user_id == target.id)
-        .values(revoked_at=datetime.now())
+        UserSession.__table__.update().where(UserSession.user_id == target.id).values(revoked_at=datetime.now())
     )
     session.commit()
 

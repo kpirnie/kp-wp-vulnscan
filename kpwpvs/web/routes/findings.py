@@ -88,9 +88,7 @@ async def list_findings(
     # the working set is anything nobody has closed out
     if state == "open":
         statement = statement.where(
-            Finding.status.in_(
-                (FindingStatus.OPEN, FindingStatus.ACKNOWLEDGED, FindingStatus.IN_PROGRESS)
-            )
+            Finding.status.in_((FindingStatus.OPEN, FindingStatus.ACKNOWLEDGED, FindingStatus.IN_PROGRESS))
         )
     elif state and state != "all":
         statement = statement.where(Finding.status == state)
@@ -103,9 +101,7 @@ async def list_findings(
         statement = statement.where(Software.slug.like(term) | Vulnerability.title.like(term))
 
     # count before paging, so the pager knows how far it goes
-    total = session.execute(
-        select(func.count()).select_from(statement.subquery())
-    ).scalar_one()
+    total = session.execute(select(func.count()).select_from(statement.subquery())).scalar_one()
 
     rows = session.execute(
         statement.order_by(

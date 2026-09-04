@@ -26,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
+from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin, enum_column
 
 
 class RunKind(enum.StrEnum):
@@ -130,7 +130,7 @@ class Run(TimestampMixin, Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # what hangs off it
-    stages: Mapped[list["RunStage"]] = relationship(
+    stages: Mapped[list[RunStage]] = relationship(
         back_populates="run",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -182,7 +182,7 @@ class RunStage(Base):
     stats: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    run: Mapped["Run"] = relationship(back_populates="stages")
+    run: Mapped[Run] = relationship(back_populates="stages")
 
     def __repr__(self) -> str:
         """

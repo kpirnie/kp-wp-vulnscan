@@ -18,4 +18,14 @@ from kpwpvs.services.reporter import Reporter
 from kpwpvs.services.settings_service import SettingsService
 
 # what this package hands out
-__all__ = ["Crawler", "CrawlStats", "FeedService", "FeedStats", "MatchStats", "Matcher", "Pipeline", "Reporter", "SettingsService"]
+__all__ = [
+    "Crawler",
+    "CrawlStats",
+    "FeedService",
+    "FeedStats",
+    "MatchStats",
+    "Matcher",
+    "Pipeline",
+    "Reporter",
+    "SettingsService",
+]

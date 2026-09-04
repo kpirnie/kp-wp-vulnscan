@@ -1,0 +1,20 @@
+#!/command/with-contenv sh
+# The built in schedule.
+#
+# Off unless KPWPVS_SCHEDULE is set, because the readme recommends
+# running this from the host's own cron instead. Set it to a crontab
+# expression to have the container schedule itself.
+set -e
+
+if [ -z "${KPWPVS_SCHEDULE:-}" ]; then
+    echo "[cron] no KPWPVS_SCHEDULE set, scanning is left to the host"
+    exec sleep infinity
+fi
+
+echo "[cron] scheduling a scan at: ${KPWPVS_SCHEDULE}"
+printenv | grep -E '^KPWPVS_' | sed 's/^/export /' > /run/kpwpvs-env
+echo "${KPWPVS_SCHEDULE} . /run/kpwpvs-env && /opt/venv/bin/kpwpvs scan >> /proc/1/fd/1 2>&1" \
+    > /etc/cron.d/kpwpvs
+echo "" >> /etc/cron.d/kpwpvs
+chmod 0644 /etc/cron.d/kpwpvs
+exec cron -f -L 2

@@ -82,12 +82,16 @@ async def dashboard(
                 .order_by(Vulnerability.cvss_score.desc())
             ).all()
 
-        core_releases = session.execute(
-            select(SoftwareVersion)
-            .where(SoftwareVersion.software_id == core.id)
-            .order_by(SoftwareVersion.version_key.desc())
-            .limit(8)
-        ).scalars().all()
+        core_releases = (
+            session.execute(
+                select(SoftwareVersion)
+                .where(SoftwareVersion.software_id == core.id)
+                .order_by(SoftwareVersion.version_key.desc())
+                .limit(8)
+            )
+            .scalars()
+            .all()
+        )
 
     # open plugin findings by severity
     severity_rows = session.execute(
@@ -99,19 +103,19 @@ async def dashboard(
 
     # what the catalog holds
     catalog_rows = session.execute(
-        select(Software.software_type, Software.status, func.count())
-        .group_by(Software.software_type, Software.status)
+        select(Software.software_type, Software.status, func.count()).group_by(Software.software_type, Software.status)
     ).all()
 
     catalog_total = sum(count for _, _, count in catalog_rows)
 
     # the highest priority scan targets
-    priorities = session.execute(
-        select(Software)
-        .where(Software.issue_count > 0)
-        .order_by(Software.priority_score.desc())
-        .limit(10)
-    ).scalars().all()
+    priorities = (
+        session.execute(
+            select(Software).where(Software.issue_count > 0).order_by(Software.priority_score.desc()).limit(10)
+        )
+        .scalars()
+        .all()
+    )
 
     # and how things have been going
     runs = session.execute(select(Run).order_by(Run.id.desc()).limit(5)).scalars().all()

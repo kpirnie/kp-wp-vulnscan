@@ -1,0 +1,3 @@
+#!/command/with-contenv sh
+# Wait for the server, then bring the schema up to date.
+exec /usr/local/bin/kpwpvs-init-schema

@@ -19,13 +19,6 @@ from kpwpvs.models.finding import (
     FindingEventType,
     FindingStatus,
 )
-from kpwpvs.models.software import (
-    ReleaseStatus,
-    Software,
-    SoftwareStatus,
-    SoftwareTag,
-    SoftwareVersion,
-)
 from kpwpvs.models.report import (
     DeliveryStatus,
     Report,
@@ -41,6 +34,13 @@ from kpwpvs.models.run import (
     RunTrigger,
 )
 from kpwpvs.models.setting import Setting
+from kpwpvs.models.software import (
+    ReleaseStatus,
+    Software,
+    SoftwareStatus,
+    SoftwareTag,
+    SoftwareVersion,
+)
 from kpwpvs.models.user import AuditLog, User, UserRole, UserSession
 from kpwpvs.models.vulnerability import (
     FeedSource,

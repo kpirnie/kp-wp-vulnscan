@@ -1,0 +1,20 @@
+#!/command/with-contenv sh
+# The bundled database server.
+#
+# Skipped entirely when KPWPVS_DATABASE_EMBEDDED is false, which is how
+# you point this at a server somewhere else.
+set -e
+
+if [ "${KPWPVS_DATABASE_EMBEDDED:-true}" = "false" ]; then
+    echo "[mariadb] embedded server disabled, using ${KPWPVS_DATABASE_HOST}"
+    exec sleep infinity
+fi
+
+echo "[mariadb] starting"
+exec gosu mysql /usr/sbin/mariadbd \
+    --datadir=/var/lib/mysql \
+    --socket=/run/mysqld/mysqld.sock \
+    --bind-address=127.0.0.1 \
+    --port="${KPWPVS_DATABASE_PORT:-3306}" \
+    --skip-name-resolve \
+    --innodb-buffer-pool-size="${KPWPVS_INNODB_BUFFER_POOL:-256M}"

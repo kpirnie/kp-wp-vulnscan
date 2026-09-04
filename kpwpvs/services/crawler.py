@@ -29,7 +29,6 @@ from kpwpvs.models import (
     SoftwareVersion,
 )
 from kpwpvs.services.settings_service import SettingsService
-from kpwpvs.sources.wporg import PluginRecord, WporgClient
 from kpwpvs.sources.wpcore import (
     CORE_NAME,
     CORE_SLUG,
@@ -37,6 +36,7 @@ from kpwpvs.sources.wpcore import (
     MU_SLUG,
     WpCoreClient,
 )
+from kpwpvs.sources.wporg import PluginRecord, WporgClient
 from kpwpvs.utils.version import sort_key
 
 logger = logging.getLogger(__name__)
@@ -142,10 +142,12 @@ class Crawler:
         """
 
         # find it by slug, that is the identity
-        plugin = self._session.execute(select(Software).where(
+        plugin = self._session.execute(
+            select(Software).where(
                 Software.slug == record.slug,
                 Software.software_type == SoftwareType.PLUGIN,
-            )).scalar_one_or_none()
+            )
+        ).scalar_one_or_none()
 
         # brand new to us
         if plugin is None:

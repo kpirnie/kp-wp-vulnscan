@@ -154,12 +154,12 @@ class Software(TimestampMixin, Base):
     last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # what hangs off it
-    versions: Mapped[list["SoftwareVersion"]] = relationship(
+    versions: Mapped[list[SoftwareVersion]] = relationship(
         back_populates="software",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    tags: Mapped[list["SoftwareTag"]] = relationship(
+    tags: Mapped[list[SoftwareTag]] = relationship(
         back_populates="software",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -223,7 +223,7 @@ class SoftwareVersion(TimestampMixin, Base):
     released_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     first_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    software: Mapped["Software"] = relationship(back_populates="versions")
+    software: Mapped[Software] = relationship(back_populates="versions")
 
     def __repr__(self) -> str:
         """
@@ -257,7 +257,7 @@ class SoftwareTag(Base):
     )
     tag: Mapped[str] = mapped_column(String(191), nullable=False, index=True)
 
-    software: Mapped["Software"] = relationship(back_populates="tags")
+    software: Mapped[Software] = relationship(back_populates="tags")
 
     def __repr__(self) -> str:
         """

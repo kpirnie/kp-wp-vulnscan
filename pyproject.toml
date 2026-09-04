@@ -28,3 +28,22 @@ target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# these are fastapi's dependency injection, not accidental mutable
+# defaults, which is what B008 is actually there to catch
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Form",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Body",
+    "fastapi.File",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# alembic writes these itself and reformatting them by hand only makes
+# the next autogenerate churn
+"migrations/versions/*.py" = ["E501"]

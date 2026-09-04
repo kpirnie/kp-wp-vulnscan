@@ -98,7 +98,6 @@ class WpCoreClient:
         catalog = CoreCatalog()
 
         with httpx.Client(timeout=self._timeout, headers=self._headers, follow_redirects=True) as client:
-
             # every release ever made, with wordpress.org's own verdict
             response = client.get(STABLE_CHECK_URL)
             response.raise_for_status()

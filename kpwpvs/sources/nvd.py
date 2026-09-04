@@ -140,9 +140,7 @@ def parse_cve(raw: dict[str, Any]) -> VulnRecord | None:
         if cwe_id:
             break
 
-    references = [
-        ref.get("url") for ref in (raw.get("references") or []) if isinstance(ref.get("url"), str)
-    ]
+    references = [ref.get("url") for ref in (raw.get("references") or []) if isinstance(ref.get("url"), str)]
 
     record = VulnRecord(
         source_id=cve_id.strip(),

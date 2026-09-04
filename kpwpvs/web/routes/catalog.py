@@ -83,9 +83,7 @@ async def list_software(
         "updated": Software.last_updated.desc(),
     }.get(sort, Software.priority_score.desc())
 
-    rows = session.execute(
-        statement.order_by(ordering).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)
-    ).scalars().all()
+    rows = session.execute(statement.order_by(ordering).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)).scalars().all()
 
     context = {
         "user": user,
@@ -137,16 +135,22 @@ async def software_detail(
         .limit(100)
     ).all()
 
-    versions = session.execute(
-        select(SoftwareVersion)
-        .where(SoftwareVersion.software_id == software.id)
-        .order_by(SoftwareVersion.version_key.desc())
-        .limit(25)
-    ).scalars().all()
+    versions = (
+        session.execute(
+            select(SoftwareVersion)
+            .where(SoftwareVersion.software_id == software.id)
+            .order_by(SoftwareVersion.version_key.desc())
+            .limit(25)
+        )
+        .scalars()
+        .all()
+    )
 
-    tags = session.execute(
-        select(SoftwareTag.tag).where(SoftwareTag.software_id == software.id).order_by(SoftwareTag.tag)
-    ).scalars().all()
+    tags = (
+        session.execute(select(SoftwareTag.tag).where(SoftwareTag.software_id == software.id).order_by(SoftwareTag.tag))
+        .scalars()
+        .all()
+    )
 
     return request.app.state.templates.TemplateResponse(
         request,
@@ -191,11 +195,15 @@ async def core_page(
     current_issues: list = []
 
     if core is not None:
-        releases = session.execute(
-            select(SoftwareVersion)
-            .where(SoftwareVersion.software_id == core.id)
-            .order_by(SoftwareVersion.version_key.desc())
-        ).scalars().all()
+        releases = (
+            session.execute(
+                select(SoftwareVersion)
+                .where(SoftwareVersion.software_id == core.id)
+                .order_by(SoftwareVersion.version_key.desc())
+            )
+            .scalars()
+            .all()
+        )
 
         current = next((r for r in releases if r.is_current), None)
         if current is not None:

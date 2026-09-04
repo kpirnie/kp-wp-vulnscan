@@ -27,7 +27,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
+from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin, enum_column
 
 
 class UserRole(enum.StrEnum):
@@ -98,7 +98,7 @@ class User(TimestampMixin, Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # what hangs off it
-    sessions: Mapped[list["UserSession"]] = relationship(
+    sessions: Mapped[list[UserSession]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -151,7 +151,7 @@ class UserSession(Base):
     # set when somebody signs out or an admin kills the session
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    user: Mapped["User"] = relationship(back_populates="sessions")
+    user: Mapped[User] = relationship(back_populates="sessions")
 
     def __repr__(self) -> str:
         """

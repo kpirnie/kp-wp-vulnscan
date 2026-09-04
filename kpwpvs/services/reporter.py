@@ -24,7 +24,7 @@ from typing import Any
 
 import httpx
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from kpwpvs import __version__
@@ -37,7 +37,6 @@ from kpwpvs.models import (
     ReportFormat,
     Severity,
     Software,
-    SoftwareStatus,
     SoftwareType,
     SoftwareVersion,
     Vulnerability,
@@ -139,12 +138,16 @@ class Reporter:
             return {"tracked": False}
 
         # the releases, newest first, with what is wrong with each
-        releases = self._session.execute(
-            select(SoftwareVersion)
-            .where(SoftwareVersion.software_id == core.id)
-            .order_by(SoftwareVersion.version_key.desc())
-            .limit(CORE_RELEASES)
-        ).scalars().all()
+        releases = (
+            self._session.execute(
+                select(SoftwareVersion)
+                .where(SoftwareVersion.software_id == core.id)
+                .order_by(SoftwareVersion.version_key.desc())
+                .limit(CORE_RELEASES)
+            )
+            .scalars()
+            .all()
+        )
 
         # what is wrong with the release currently shipping, which is the
         # number people least expect to be above zero
@@ -208,8 +211,9 @@ class Reporter:
         """
 
         rows = self._session.execute(
-            select(Software.software_type, Software.status, func.count())
-            .group_by(Software.software_type, Software.status)
+            select(Software.software_type, Software.status, func.count()).group_by(
+                Software.software_type, Software.status
+            )
         ).all()
 
         by_type: dict[str, dict[str, int]] = {}
@@ -309,12 +313,16 @@ class Reporter:
         @return list[dict]: The highest priority entries
         """
 
-        rows = self._session.execute(
-            select(Software)
-            .where(Software.issue_count > 0)
-            .order_by(Software.priority_score.desc())
-            .limit(TOP_PRIORITY)
-        ).scalars().all()
+        rows = (
+            self._session.execute(
+                select(Software)
+                .where(Software.issue_count > 0)
+                .order_by(Software.priority_score.desc())
+                .limit(TOP_PRIORITY)
+            )
+            .scalars()
+            .all()
+        )
 
         return [
             {
@@ -349,9 +357,7 @@ class Reporter:
                 "source": feed.source.value,
                 "name": feed.name,
                 "enabled": feed.enabled,
-                "last_success_at": feed.last_success_at.isoformat(timespec="seconds")
-                if feed.last_success_at
-                else None,
+                "last_success_at": feed.last_success_at.isoformat(timespec="seconds") if feed.last_success_at else None,
                 "record_count": feed.record_count,
                 "error": feed.last_error,
             }

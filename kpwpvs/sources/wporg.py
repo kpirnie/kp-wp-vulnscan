@@ -179,7 +179,7 @@ def _as_int(value: Any) -> int:
 
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 0
 
 
@@ -291,7 +291,7 @@ class WporgClient:
             follow_redirects=True,
         )
 
-    async def __aenter__(self) -> "WporgClient":
+    async def __aenter__(self) -> WporgClient:
         """
         Enter the async context
 
@@ -355,7 +355,6 @@ class WporgClient:
 
         # try, back off, try again
         for attempt in range(self._max_retries + 1):
-
             # pace ourselves, this is somebody else's free api
             if self._rate_limit_delay > 0:
                 await asyncio.sleep(self._rate_limit_delay)

@@ -18,9 +18,9 @@ import logging
 import sys
 import time
 
-from kpwpvs import __version__
 from sqlalchemy import select
 
+from kpwpvs import __version__
 from kpwpvs.core.config import BootstrapConfig, load_config
 from kpwpvs.core.crypto import SecretBox
 from kpwpvs.core.db import init_engine, ping, session_scope
@@ -472,7 +472,6 @@ def handle_user(config: BootstrapConfig, args: argparse.Namespace) -> int:
     init_engine(config)
 
     with session_scope() as session:
-
         # who is already here
         if args.action == "list":
             for account in session.execute(select(User).order_by(User.username)).scalars():
@@ -490,9 +489,7 @@ def handle_user(config: BootstrapConfig, args: argparse.Namespace) -> int:
             logger.error("that action needs a username")
             return 1
 
-        account = session.execute(
-            select(User).where(User.username == args.username)
-        ).scalar_one_or_none()
+        account = session.execute(select(User).where(User.username == args.username)).scalar_one_or_none()
 
         # change somebody's role
         if args.action == "role":

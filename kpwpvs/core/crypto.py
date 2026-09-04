@@ -83,6 +83,6 @@ class SecretBox:
         # a failure here almost always means secret_key changed
         try:
             return self._fernet.decrypt(value.encode("ascii")).decode("utf-8")
-        except (InvalidToken, ValueError):
+        except InvalidToken, ValueError:
             logger.warning("a stored secret could not be decrypted, has the secret key changed?")
             return ""
