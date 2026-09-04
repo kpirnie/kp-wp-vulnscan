@@ -11,13 +11,13 @@ for now, database access and models to follow.
 """
 
 # setup the imports
-from kpwpvs.core.config import AppConfig, find_config_file, load_config
+from kpwpvs.core.config import BootstrapConfig, DatabaseConfig, load_config
 from kpwpvs.core.logging import setup_logging
 
 # what this package hands out
 __all__ = [
-    "AppConfig",
-    "find_config_file",
+    "BootstrapConfig",
+    "DatabaseConfig",
     "load_config",
     "setup_logging",
 ]

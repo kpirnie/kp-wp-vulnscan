@@ -37,7 +37,6 @@ def build_parser() -> argparse.ArgumentParser:
         prog="kpwpvs",
         description="WordPress plugin vulnerability scanner and reporter",
     )
-    parser.add_argument("-c", "--config", help="path to the yaml config file")
     parser.add_argument("-d", "--debug", action="store_true", help="enable verbose debug logging")
     parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {__version__}")
 
@@ -88,9 +87,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    # load the config before anything else needs it
+    # the environment gives us the database connection, everything else
+    # gets read out of the settings table once we are connected
     try:
-        config = load_config(args.config)
+        config = load_config()
     except Exception as exc:
         print(f"failed to load configuration: {exc}", file=sys.stderr)
         return 1

@@ -26,18 +26,34 @@ AI assisted.
 
 ## configuration
 
-Copy `config/config.example.yaml` to `config/config.yaml`, or mount it
-into the container at `/config/config.yaml`. Every setting can also be
-supplied as an environment variable using the `KPWPVS_` prefix and the
-dotted path uppercased with underscores:
+There is no config file. The environment carries the database connection
+and the secret key, both set in `docker-compose.yaml` so there is no
+`.env` to carry around. Everything else lives in the `settings` and
+`feeds` tables and is managed from the web interface, so endpoints and
+api keys can be changed without a redeploy.
+
+```yaml
+environment:
+  KPWPVS_DATABASE_HOST: db
+  KPWPVS_DATABASE_PORT: 3306
+  KPWPVS_DATABASE_NAME: kpwpvs
+  KPWPVS_DATABASE_USER: kpwpvs
+  KPWPVS_DATABASE_PASSWORD: secret
+
+  # signs sessions and encrypts stored api keys, generate one with:
+  #   python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+  KPWPVS_SECRET_KEY: ...
+```
+
+Any of these can be supplied as a file instead, which is how you feed a
+podman secret in without it landing in the process environment:
 
 ```
-KPWPVS_DATABASE_PASSWORD=secret
-KPWPVS_WEB_PORT=9090
-KPWPVS_FEEDS_NVD_API_KEY=...
+KPWPVS_DATABASE_PASSWORD_FILE=/run/secrets/db_password
 ```
 
-The environment always wins over the file.
+The three vulnerability feeds are seeded on first migration and are
+editable from the interface, endpoint included, because these do move.
 
 ## usage
 
