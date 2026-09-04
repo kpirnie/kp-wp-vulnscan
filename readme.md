@@ -55,6 +55,13 @@ kpwpvs web               # run the web interface
 
 Python 3.14.7 or newer, MariaDB or MySQL.
 
-## license
+## License
 
-MIT. See `LICENSE`.
+The data in this repository is provided under the **MIT License**. 
+You can view the full license text in the [LICENSE](LICENSE) file in this repository.
+
+The underlying primary vulnerability information is sourced from Wordfence Intelligence and NVD/CVE and is subject to their terms and conditions.
+
+## Disclaimer
+
+This database is provided "as is", without warranty of any kind, express or implied. The maintainers of this repository are not responsible for any actions taken based on the information provided herein. Always verify critical information with the authoritative source (Wordfence) and follow responsible disclosure practices.
