@@ -272,6 +272,8 @@ def upgrade() -> None:
     sa.Column('version_key', sa.String(length=80), nullable=False),
     sa.Column('download_link', sa.String(length=1024), nullable=True),
     sa.Column('is_current', sa.Boolean(), nullable=False),
+    sa.Column('release_status', sa.Enum('latest', 'outdated', 'insecure', 'unknown', name='releasestatus', native_enum=False, length=16), nullable=False),
+    sa.Column('issue_count', sa.Integer(), nullable=False),
     sa.Column('released_at', sa.DateTime(), nullable=True),
     sa.Column('first_seen', sa.DateTime(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
@@ -283,6 +285,7 @@ def upgrade() -> None:
     mysql_collate='utf8mb4_unicode_ci',
     mysql_engine='InnoDB'
     )
+    op.create_index(op.f('ix_software_versions_release_status'), 'software_versions', ['release_status'], unique=False)
     op.create_index('ix_software_versions_software_key', 'software_versions', ['software_id', 'version_key'], unique=False)
     op.create_table('user_sessions',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
@@ -330,6 +333,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('software_id', sa.Integer(), nullable=False),
     sa.Column('vulnerability_id', sa.Integer(), nullable=False),
+    sa.Column('software_version_id', sa.Integer(), nullable=True),
     sa.Column('affect_id', sa.Integer(), nullable=True),
     sa.Column('matched_version', sa.String(length=64), nullable=True),
     sa.Column('severity', sa.Enum('none', 'low', 'medium', 'high', 'critical', name='severity', native_enum=False, length=16), nullable=False),
@@ -350,9 +354,10 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['first_run_id'], ['runs.id'], name=op.f('fk_findings_first_run_id_runs'), ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['last_run_id'], ['runs.id'], name=op.f('fk_findings_last_run_id_runs'), ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['software_id'], ['software.id'], name=op.f('fk_findings_software_id_software'), ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['software_version_id'], ['software_versions.id'], name=op.f('fk_findings_software_version_id_software_versions'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['vulnerability_id'], ['vulnerabilities.id'], name=op.f('fk_findings_vulnerability_id_vulnerabilities'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_findings')),
-    sa.UniqueConstraint('software_id', 'vulnerability_id', name='uq_findings_software_id_vulnerability_id'),
+    sa.UniqueConstraint('software_id', 'vulnerability_id', 'software_version_id', name='uq_findings_software_id_vulnerability_id_software_version_id'),
     mysql_charset='utf8mb4',
     mysql_collate='utf8mb4_unicode_ci',
     mysql_engine='InnoDB'

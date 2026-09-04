@@ -62,6 +62,8 @@ def build_parser() -> argparse.ArgumentParser:
     crawl = sub.add_parser("crawl", help="crawl the wordpress.org plugin repository")
     crawl.add_argument("--full", action="store_true", help="force a full seed crawl instead of incremental")
     crawl.add_argument("--max-pages", type=int, help="stop after this many pages, for a quick look")
+    crawl.add_argument("--core-only", action="store_true", help="only refresh the core release history")
+    crawl.add_argument("--skip-core", action="store_true", help="skip the core release history")
 
     # refresh the vulnerability feeds
     feeds = sub.add_parser("feeds", help="refresh the vulnerability feeds")
@@ -178,6 +180,14 @@ def handle_crawl(config: BootstrapConfig, args: argparse.Namespace) -> int:
     try:
         with session_scope() as session:
             crawler = Crawler(session, SettingsService(session))
+
+            # core first, it is the one that matters most and it is cheap
+            if not args.skip_core:
+                crawler.crawl_core()
+
+            if args.core_only:
+                return 0
+
             stats = asyncio.run(crawler.crawl(full=args.full, max_pages=args.max_pages))
     except Exception as exc:
         logger.error("crawl failed: %s", exc, exc_info=logger.isEnabledFor(logging.DEBUG))

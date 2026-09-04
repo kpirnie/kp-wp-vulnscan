@@ -19,7 +19,13 @@ from kpwpvs.models.finding import (
     FindingEventType,
     FindingStatus,
 )
-from kpwpvs.models.software import Software, SoftwareStatus, SoftwareTag, SoftwareVersion
+from kpwpvs.models.software import (
+    ReleaseStatus,
+    Software,
+    SoftwareStatus,
+    SoftwareTag,
+    SoftwareVersion,
+)
 from kpwpvs.models.report import (
     DeliveryStatus,
     Report,
@@ -57,6 +63,7 @@ __all__ = [
     "FindingEvent",
     "FindingEventType",
     "FindingStatus",
+    "ReleaseStatus",
     "Report",
     "ReportFormat",
     "Run",

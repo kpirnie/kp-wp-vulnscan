@@ -29,6 +29,7 @@ from kpwpvs.models import (
     Software,
     SoftwareStatus,
     SoftwareType,
+    SoftwareVersion,
     Vulnerability,
     VulnerabilityAffect,
 )
@@ -75,6 +76,7 @@ class MatchStats:
         self.findings_updated = 0
         self.findings_resolved = 0
         self.scored = 0
+        self.core_matched = 0
 
     def as_dict(self) -> dict[str, int]:
         """
@@ -91,6 +93,7 @@ class MatchStats:
             "findings_updated": self.findings_updated,
             "findings_resolved": self.findings_resolved,
             "scored": self.scored,
+            "core_matched": self.core_matched,
         }
 
 
@@ -201,6 +204,7 @@ class Matcher:
             )
             .join(Vulnerability, Vulnerability.id == VulnerabilityAffect.vulnerability_id)
             .where(
+                Software.software_type != SoftwareType.CORE,
                 Software.version_key.is_not(None),
                 (VulnerabilityAffect.from_key.is_(None))
                 | (Software.version_key >= VulnerabilityAffect.from_key),
@@ -210,6 +214,170 @@ class Matcher:
         )
 
         return list(self._session.execute(statement))
+
+    def _core_candidates(self) -> list[tuple]:
+        """
+        Every core release and affected range pair that might match
+
+        Core is matched per release rather than against whatever is
+        current, because unlike a plugin everybody is running some older
+        version of it and the useful question is what is wrong with the
+        one you are actually on.
+
+        @return list[tuple]: The candidate pairs to check properly
+        """
+
+        # same coarse key filter as plugins, but against every release
+        statement = (
+            select(
+                Software.id,
+                SoftwareVersion.id,
+                SoftwareVersion.version,
+                VulnerabilityAffect.id,
+                VulnerabilityAffect.vulnerability_id,
+                VulnerabilityAffect.from_version,
+                VulnerabilityAffect.from_inclusive,
+                VulnerabilityAffect.to_version,
+                VulnerabilityAffect.to_inclusive,
+                VulnerabilityAffect.patched,
+                VulnerabilityAffect.patched_versions,
+                Vulnerability.severity,
+            )
+            .select_from(SoftwareVersion)
+            .join(Software, Software.id == SoftwareVersion.software_id)
+            .join(
+                VulnerabilityAffect,
+                (VulnerabilityAffect.slug == Software.slug)
+                & (VulnerabilityAffect.software_type == Software.software_type),
+            )
+            .join(Vulnerability, Vulnerability.id == VulnerabilityAffect.vulnerability_id)
+            .where(
+                Software.software_type == SoftwareType.CORE,
+                (VulnerabilityAffect.from_key.is_(None))
+                | (SoftwareVersion.version_key >= VulnerabilityAffect.from_key),
+                (VulnerabilityAffect.to_key.is_(None))
+                | (SoftwareVersion.version_key <= VulnerabilityAffect.to_key),
+            )
+        )
+
+        return list(self._session.execute(statement))
+
+    def match_core(self, run_id: int | None = None) -> int:
+        """
+        Match vulnerabilities against every core release
+
+        Produces a finding per release rather than per piece of software,
+        so somebody on an older core can be told exactly what is wrong
+        with the version they are on. Core is the one thing where that
+        matters, because a vulnerable core makes every other result moot.
+
+        @param run_id: int|None The run this pass belongs to
+        @return int: How many core findings matched
+        """
+
+        now = datetime.now()
+        candidates = self._core_candidates()
+        logger.info("checking %s core release candidate pairs", len(candidates))
+
+        # what is already on the books for core
+        existing = {
+            (f.software_id, f.vulnerability_id, f.software_version_id): f
+            for f in self._session.execute(
+                select(Finding).where(Finding.software_version_id.is_not(None))
+            ).scalars()
+        }
+
+        matched = 0
+
+        # distinct vulnerability and release pairings seen this pass. a set
+        # rather than a counter because a vulnerability with several ranges
+        # can match one release more than once, and because the counts have
+        # to come out the same whether the findings already existed or not
+        seen: set[tuple[int, int]] = set()
+
+        for row in candidates:
+            (
+                software_id,
+                version_id,
+                version,
+                affect_id,
+                vulnerability_id,
+                from_version,
+                from_inclusive,
+                to_version,
+                to_inclusive,
+                patched,
+                patched_versions,
+                severity,
+            ) = row
+
+            if not in_range(version, from_version, from_inclusive, to_version, to_inclusive):
+                continue
+
+            key = (software_id, vulnerability_id, version_id)
+            finding = existing.get(key)
+
+            # count distinct vulnerabilities per release, not range hits,
+            # otherwise a vulnerability with three ranges counts as three
+            if (version_id, vulnerability_id) not in seen:
+                seen.add((version_id, vulnerability_id))
+                matched += 1
+
+            # new to us. note it has to go straight into the lookup as
+            # well, a vulnerability can carry several affected ranges and
+            # one release can legitimately fall inside more than one of
+            # them, which would otherwise insert the same finding twice
+            if finding is None:
+                finding = Finding(
+                    software_id=software_id,
+                    software_version_id=version_id,
+                    vulnerability_id=vulnerability_id,
+                    affect_id=affect_id,
+                    matched_version=version,
+                    severity=severity,
+                    status=FindingStatus.OPEN,
+                    fix_available=bool(patched),
+                    fixed_in_version=self._fix_target(patched_versions),
+                    first_seen=now,
+                    last_seen=now,
+                    first_run_id=run_id,
+                    last_run_id=run_id,
+                )
+                self._session.add(finding)
+                existing[key] = finding
+            else:
+                finding.last_seen = now
+                finding.last_run_id = run_id
+
+            if (matched % COMMIT_EVERY) == 0:
+                self._session.commit()
+
+        self._session.commit()
+
+        # fold the pairings down into a count per release
+        per_version: dict[int, int] = {}
+        for version_id, _ in seen:
+            per_version[version_id] = per_version.get(version_id, 0) + 1
+
+        # stamp each release with how many issues it carries, which is the
+        # number that actually goes in front of somebody
+        self._session.execute(
+            text("UPDATE software_versions SET issue_count = 0 WHERE issue_count <> 0")
+        )
+        if per_version:
+            statement = (
+                SoftwareVersion.__table__.update()
+                .where(SoftwareVersion.__table__.c.id == bindparam("b_id"))
+                .values(issue_count=bindparam("b_count"))
+            )
+            payload = [{"b_id": vid, "b_count": count} for vid, count in per_version.items()]
+            for start in range(0, len(payload), COMMIT_EVERY):
+                self._session.execute(statement, payload[start : start + COMMIT_EVERY])
+            self._session.commit()
+
+        logger.info("core: %s findings across %s releases", matched, len(per_version))
+
+        return matched
 
     def match(self, run_id: int | None = None) -> MatchStats:
         """
@@ -238,7 +406,9 @@ class Matcher:
         # everything currently on the books, so we can tell what went away
         existing = {
             (finding.software_id, finding.vulnerability_id): finding
-            for finding in self._session.execute(select(Finding)).scalars()
+            for finding in self._session.execute(
+                select(Finding).where(Finding.software_version_id.is_(None))
+            ).scalars()
         }
         still_matching: set[tuple[int, int]] = set()
 
@@ -296,6 +466,10 @@ class Matcher:
                         new_value=FindingStatus.OPEN.value,
                     )
                 )
+
+                # into the lookup straight away, for the same reason as
+                # core: several ranges on one vulnerability can all match
+                existing[key] = finding
                 stats.findings_opened += 1
 
             # already known, just confirm it still applies
@@ -331,6 +505,9 @@ class Matcher:
 
         # anything open that no longer matches has been fixed upstream
         stats.findings_resolved = self._auto_resolve(existing, still_matching, now, run_id)
+
+        # core gets its own pass, matched per release
+        stats.core_matched = self.match_core(run_id)
 
         # and rank the lot
         stats.scored = self.rescore()

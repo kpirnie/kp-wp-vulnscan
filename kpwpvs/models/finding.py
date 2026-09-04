@@ -76,7 +76,16 @@ class Finding(TimestampMixin, Base):
 
     __tablename__ = "findings"
     __table_args__ = (
-        UniqueConstraint("software_id", "vulnerability_id", name="uq_findings_software_id_vulnerability_id"),
+        # note mysql treats nulls as distinct in a unique index, so this
+        # does not constrain plugin findings, where the version is null.
+        # the matcher keys its own lookup on the same triple and is what
+        # actually prevents duplicates there
+        UniqueConstraint(
+            "software_id",
+            "vulnerability_id",
+            "software_version_id",
+            name="uq_findings_software_id_vulnerability_id_software_version_id",
+        ),
         Index("ix_findings_status_severity", "status", "severity"),
         Index("ix_findings_software_status", "software_id", "status"),
         TABLE_ARGS,
@@ -93,6 +102,16 @@ class Finding(TimestampMixin, Base):
         Integer,
         ForeignKey("vulnerabilities.id", ondelete="CASCADE"),
         nullable=False,
+    )
+
+    # which version this is about. null means the currently published
+    # one, which is how plugins work, there is only ever one version of a
+    # plugin worth caring about. core is different, everybody is on some
+    # older release, so core findings name the version explicitly
+    software_version_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("software_versions.id", ondelete="CASCADE"),
+        nullable=True,
     )
 
     # which range actually matched, kept so the interface can show why

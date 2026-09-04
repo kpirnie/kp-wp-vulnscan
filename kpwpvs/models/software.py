@@ -35,6 +35,22 @@ from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin, enum_column
 from kpwpvs.models.vulnerability import SoftwareType
 
 
+class ReleaseStatus(enum.StrEnum):
+    """
+    What wordpress.org says about a particular release
+
+    Only core carries this today, because core is the only thing
+    wordpress.org publishes a per release security verdict for. It is
+    their assessment, kept alongside our own matching rather than
+    instead of it.
+    """
+
+    LATEST = "latest"
+    OUTDATED = "outdated"
+    INSECURE = "insecure"
+    UNKNOWN = "unknown"
+
+
 class SoftwareStatus(enum.StrEnum):
     """
     Where an entry stands in the wordpress.org repository
@@ -190,6 +206,18 @@ class SoftwareVersion(TimestampMixin, Base):
 
     # whether this is the version currently published
     is_current: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # wordpress.org's own verdict on this release, core only for now
+    release_status: Mapped[ReleaseStatus] = mapped_column(
+        enum_column(ReleaseStatus, 16),
+        nullable=False,
+        default=ReleaseStatus.UNKNOWN,
+        index=True,
+    )
+
+    # how many known vulnerabilities affect this specific version, which
+    # for core is the number somebody actually wants to see
+    issue_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # when we first saw it, and when the repository said it landed
     released_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

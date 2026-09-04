@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from kpwpvs.models import (
     CrawlCheckpoint,
+    ReleaseStatus,
     Software,
     SoftwareStatus,
     SoftwareTag,
@@ -29,6 +30,13 @@ from kpwpvs.models import (
 )
 from kpwpvs.services.settings_service import SettingsService
 from kpwpvs.sources.wporg import PluginRecord, WporgClient
+from kpwpvs.sources.wpcore import (
+    CORE_NAME,
+    CORE_SLUG,
+    MU_NAME,
+    MU_SLUG,
+    WpCoreClient,
+)
 from kpwpvs.utils.version import sort_key
 
 logger = logging.getLogger(__name__)
@@ -59,6 +67,7 @@ class CrawlStats:
         self.unchanged = 0
         self.versions_added = 0
         self.marked_abandoned = 0
+        self.core_releases = 0
 
     def as_dict(self) -> dict[str, int]:
         """
@@ -75,6 +84,7 @@ class CrawlStats:
             "unchanged": self.unchanged,
             "versions_added": self.versions_added,
             "marked_abandoned": self.marked_abandoned,
+            "core_releases": self.core_releases,
         }
 
 
@@ -289,6 +299,114 @@ class Crawler:
         for row in list(plugin.tags):
             if row.tag not in incoming:
                 self._session.delete(row)
+
+    def crawl_core(self) -> int:
+        """
+        Pull the WordPress core release history into the catalog
+
+        Core gets treated differently from a plugin on purpose. For a
+        plugin only the currently published version matters, because
+        that is what anybody installing it gets. Everybody runs some
+        older core, so every release is tracked, along with what
+        wordpress.org says about it. Their verdict is not a substitute
+        for our own matching, it is a second opinion worth keeping.
+
+        @return int: How many releases were recorded
+        """
+
+        now = datetime.now()
+
+        # ask wordpress.org for the lot
+        client = WpCoreClient(
+            user_agent=self._config.get("user_agent", "kp-wp-vulnscan"),
+            timeout=self._config.get("request_timeout", 30),
+        )
+        catalog = client.fetch()
+
+        # nothing came back, do not wipe what we already have over it
+        if not catalog.releases:
+            logger.warning("wordpress.org returned no core releases, leaving the catalog alone")
+            return 0
+
+        # core is one entry, and wordpress mu is the other the feeds still
+        # carry records against
+        core = self._core_entry(CORE_SLUG, CORE_NAME, catalog.current, now)
+        self._core_entry(MU_SLUG, MU_NAME, None, now)
+
+        # what we already know about
+        existing = {
+            row.version: row
+            for row in self._session.execute(
+                select(SoftwareVersion).where(SoftwareVersion.software_id == core.id)
+            ).scalars()
+        }
+
+        recorded = 0
+        for release in catalog.releases:
+            status = ReleaseStatus(release.status) if release.status in list(ReleaseStatus) else ReleaseStatus.UNKNOWN
+            row = existing.get(release.version)
+
+            # new release to us
+            if row is None:
+                row = SoftwareVersion(
+                    software_id=core.id,
+                    version=release.version,
+                    version_key=sort_key(release.version),
+                    first_seen=now,
+                )
+                self._session.add(row)
+
+            row.release_status = status
+            row.is_current = release.status == ReleaseStatus.LATEST.value
+            row.released_at = release.released_at
+            recorded += 1
+
+        self._session.commit()
+        logger.info("recorded %s core releases, current is %s", recorded, catalog.current)
+
+        return recorded
+
+    def _core_entry(self, slug: str, name: str, version: str | None, now: datetime) -> Software:
+        """
+        Get or create the catalog entry for a core variant
+
+        @param slug: str The slug the feeds use for it
+        @param name: str Its display name
+        @param version: str|None The version currently shipping
+        @param now: datetime The timestamp to stamp this crawl with
+        @return Software: The catalog row
+        """
+
+        # find it, or start it
+        entry = self._session.execute(
+            select(Software).where(
+                Software.slug == slug,
+                Software.software_type == SoftwareType.CORE,
+            )
+        ).scalar_one_or_none()
+
+        if entry is None:
+            entry = Software(
+                slug=slug,
+                software_type=SoftwareType.CORE,
+                name=name,
+                first_seen=now,
+            )
+            self._session.add(entry)
+
+        # core is never abandoned or closed, whatever the dates suggest
+        entry.name = name
+        entry.status = SoftwareStatus.ACTIVE
+        entry.last_seen = now
+        entry.last_crawled = now
+
+        if version:
+            entry.version = version
+            entry.version_key = sort_key(version)
+
+        self._session.flush()
+
+        return entry
 
     def _build_client(self) -> WporgClient:
         """
