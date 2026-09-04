@@ -22,3 +22,5 @@ migrations/versions/__pycache__/
 Containerfile.sandbox
 proxy-ca.crt
 reports/
+test/
+docker-compose.yaml

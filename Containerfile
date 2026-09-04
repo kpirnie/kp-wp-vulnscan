@@ -19,10 +19,10 @@ COPY kpwpvs/web/templates ./kpwpvs/web/templates
 # tailwind scans the templates for the classes actually used, so they have
 # to be present here or the output is nearly empty
 RUN npm install --no-save tailwindcss@4.3.3 @tailwindcss/cli@4.3.3 \
- && npx @tailwindcss/cli \
-      --input  kpwpvs/web/assets/app.css \
-      --output /build/app.css \
-      --minify
+    && npx @tailwindcss/cli \
+    --input  kpwpvs/web/assets/app.css \
+    --output /build/app.css \
+    --minify
 
 
 # --- stage 2: the python wheels ---------------------------------------
@@ -31,14 +31,14 @@ FROM python:3.14.7-slim-trixie AS wheels
 # everything we need has a manylinux wheel, but build tools are here in
 # case a future dependency does not
 RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential libffi-dev \
- && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends build-essential libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 COPY requirements.txt .
 RUN python -m venv /opt/venv \
- && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
- && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 
 # --- stage 3: the runtime ---------------------------------------------
@@ -49,9 +49,9 @@ ARG S6_OVERLAY_VERSION=3.2.1.0
 ARG TARGETARCH=amd64
 
 LABEL org.opencontainers.image.title="KP WP VulnScan" \
-      org.opencontainers.image.description="WordPress core and plugin vulnerability scanner and reporter" \
-      org.opencontainers.image.source="https://github.com/kpirnie/kp-wp-vulnscan" \
-      org.opencontainers.image.licenses="MIT"
+    org.opencontainers.image.description="WordPress core and plugin vulnerability scanner and reporter" \
+    org.opencontainers.image.source="https://github.com/kpirnie/kp-wp-vulnscan" \
+    org.opencontainers.image.licenses="MIT"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PATH="/opt/venv/bin:$PATH" \
@@ -70,11 +70,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        ca-certificates curl gnupg xz-utils tzdata cron gosu; \
+    ca-certificates curl gnupg xz-utils tzdata cron gosu; \
     curl -fsSL https://mariadb.org/mariadb_release_signing_key.pgp \
-        -o /etc/apt/keyrings/mariadb.pgp; \
+    -o /etc/apt/keyrings/mariadb.pgp; \
     echo "deb [signed-by=/etc/apt/keyrings/mariadb.pgp] https://mirror.mariadb.org/repo/${MARIADB_SERIES}/debian trixie main" \
-        > /etc/apt/sources.list.d/mariadb.sources.list; \
+    > /etc/apt/sources.list.d/mariadb.sources.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends mariadb-server mariadb-client; \
     apt-get purge -y --auto-remove gnupg; \
@@ -86,14 +86,14 @@ RUN set -eux; \
 # behave and podman stop actually stops things
 RUN set -eux; \
     case "${TARGETARCH}" in \
-        amd64) S6_ARCH=x86_64 ;; \
-        arm64) S6_ARCH=aarch64 ;; \
-        *) echo "unsupported architecture ${TARGETARCH}" >&2; exit 1 ;; \
+    amd64) S6_ARCH=x86_64 ;; \
+    arm64) S6_ARCH=aarch64 ;; \
+    *) echo "unsupported architecture ${TARGETARCH}" >&2; exit 1 ;; \
     esac; \
     curl -fsSL "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz" \
-        | tar -C / -Jxpf -; \
+    | tar -C / -Jxpf -; \
     curl -fsSL "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_ARCH}.tar.xz" \
-        | tar -C / -Jxpf -
+    | tar -C / -Jxpf -
 
 COPY --from=wheels /opt/venv /opt/venv
 COPY --from=css /build/app.css /app/kpwpvs/web/static/app.css
@@ -116,9 +116,5 @@ RUN set -eux; \
 # mount instead, and says so plainly when there is not one
 
 EXPOSE 8080
-
-# a working install answers this, a broken one does not
-HEALTHCHECK --interval=60s --timeout=10s --start-period=90s --retries=3 \
-    CMD /usr/local/bin/kpwpvs-health
 
 ENTRYPOINT ["/init"]
