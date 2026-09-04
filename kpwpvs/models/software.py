@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Plugin Models Module
+Software Models Module
 
-The wordpress.org plugin catalog, the versions we have seen for each
-plugin, and the tags they carry.
+The wordpress.org catalog, the versions we have seen for each entry, and
+the tags they carry. Plugins today, themes when phase two lands, which
+is why this is software rather than plugins, the two differ in almost
+nothing that matters here.
 
 @package KP WP VulnScan
 @author Kevin Pirnie <me@kpirnie.com>
@@ -29,15 +31,18 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
+from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin, enum_column
+from kpwpvs.models.vulnerability import SoftwareType
 
 
-class PluginStatus(enum.StrEnum):
+class SoftwareStatus(enum.StrEnum):
     """
-    Where a plugin stands in the wordpress.org repository
+    Where an entry stands in the wordpress.org repository
 
-    Closed and abandoned plugins are worth flagging on their own, they
-    never get patched no matter what turns up in them.
+    Closed and abandoned entries are worth flagging on their own, they
+    never get patched no matter what turns up in them. Premium ones are
+    not in the free repository at all, we only know they exist because a
+    vulnerability feed named them.
     """
 
     ACTIVE = "active"
@@ -46,28 +51,37 @@ class PluginStatus(enum.StrEnum):
     ABANDONED = "abandoned"
     # we knew about it and it stopped coming back in the catalog
     MISSING = "missing"
+    # commercial, never in the free repository, known only from the feeds
+    PREMIUM = "premium"
 
 
-class Plugin(TimestampMixin, Base):
+class Software(TimestampMixin, Base):
     """
-    A plugin in the wordpress.org repository
+    An entry in the wordpress.org catalog
 
     One row per slug. Carries the catalog metadata we pull from the
     plugins api plus the denormalized issue counts that drive scan
     priority.
     """
 
-    __tablename__ = "plugins"
+    __tablename__ = "software"
     __table_args__ = (
-        Index("ix_plugins_priority", "priority_score", "issue_count"),
-        Index("ix_plugins_status_installs", "status", "active_installs"),
+        UniqueConstraint("slug", "software_type", name="uq_software_slug_software_type"),
+        Index("ix_software_priority", "priority_score", "issue_count"),
+        Index("ix_software_status_installs", "status", "active_installs"),
         TABLE_ARGS,
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    # the slug is the real identity, everything else can change
-    slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    # slug and type together are the identity. a plugin and a theme can
+    # legitimately share a slug, so the type has to be part of the key
+    slug: Mapped[str] = mapped_column(String(255), nullable=False)
+    software_type: Mapped[SoftwareType] = mapped_column(
+        enum_column(SoftwareType, 16),
+        nullable=False,
+        default=SoftwareType.PLUGIN,
+    )
     name: Mapped[str] = mapped_column(String(512), nullable=False, default="")
 
     # the version currently published in the repository
@@ -100,10 +114,10 @@ class Plugin(TimestampMixin, Base):
     last_updated: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
 
     # where it stands, and why if it is closed
-    status: Mapped[PluginStatus] = mapped_column(
-        enum_column(PluginStatus, 32),
+    status: Mapped[SoftwareStatus] = mapped_column(
+        enum_column(SoftwareStatus, 32),
         nullable=False,
-        default=PluginStatus.ACTIVE,
+        default=SoftwareStatus.ACTIVE,
     )
     closed_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -124,13 +138,13 @@ class Plugin(TimestampMixin, Base):
     last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # what hangs off it
-    versions: Mapped[list["PluginVersion"]] = relationship(
-        back_populates="plugin",
+    versions: Mapped[list["SoftwareVersion"]] = relationship(
+        back_populates="software",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    tags: Mapped[list["PluginTag"]] = relationship(
-        back_populates="plugin",
+    tags: Mapped[list["SoftwareTag"]] = relationship(
+        back_populates="software",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
@@ -142,10 +156,10 @@ class Plugin(TimestampMixin, Base):
         @return str: The slug and current version
         """
 
-        return f"<Plugin {self.slug} {self.version}>"
+        return f"<Software {self.slug} {self.version}>"
 
 
-class PluginVersion(TimestampMixin, Base):
+class SoftwareVersion(TimestampMixin, Base):
     """
     A version of a plugin we have seen published
 
@@ -153,17 +167,17 @@ class PluginVersion(TimestampMixin, Base):
     up over time as the catalog moves.
     """
 
-    __tablename__ = "plugin_versions"
+    __tablename__ = "software_versions"
     __table_args__ = (
-        UniqueConstraint("plugin_id", "version", name="uq_plugin_versions_plugin_id_version"),
-        Index("ix_plugin_versions_plugin_key", "plugin_id", "version_key"),
+        UniqueConstraint("software_id", "version", name="uq_software_versions_software_id_version"),
+        Index("ix_software_versions_software_key", "software_id", "version_key"),
         TABLE_ARGS,
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plugin_id: Mapped[int] = mapped_column(
+    software_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("plugins.id", ondelete="CASCADE"),
+        ForeignKey("software.id", ondelete="CASCADE"),
         nullable=False,
     )
 
@@ -181,19 +195,19 @@ class PluginVersion(TimestampMixin, Base):
     released_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     first_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    plugin: Mapped["Plugin"] = relationship(back_populates="versions")
+    software: Mapped["Software"] = relationship(back_populates="versions")
 
     def __repr__(self) -> str:
         """
         Readable representation for logs and the shell
 
-        @return str: The plugin id and version
+        @return str: The software id and version
         """
 
-        return f"<PluginVersion {self.plugin_id} {self.version}>"
+        return f"<SoftwareVersion {self.software_id} {self.version}>"
 
 
-class PluginTag(Base):
+class SoftwareTag(Base):
     """
     A repository tag attached to a plugin
 
@@ -201,27 +215,27 @@ class PluginTag(Base):
     filter and facet on them cheaply.
     """
 
-    __tablename__ = "plugin_tags"
+    __tablename__ = "software_tags"
     __table_args__ = (
-        UniqueConstraint("plugin_id", "tag", name="uq_plugin_tags_plugin_id_tag"),
+        UniqueConstraint("software_id", "tag", name="uq_software_tags_software_id_tag"),
         TABLE_ARGS,
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    plugin_id: Mapped[int] = mapped_column(
+    software_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("plugins.id", ondelete="CASCADE"),
+        ForeignKey("software.id", ondelete="CASCADE"),
         nullable=False,
     )
     tag: Mapped[str] = mapped_column(String(191), nullable=False, index=True)
 
-    plugin: Mapped["Plugin"] = relationship(back_populates="tags")
+    software: Mapped["Software"] = relationship(back_populates="tags")
 
     def __repr__(self) -> str:
         """
         Readable representation for logs and the shell
 
-        @return str: The plugin id and tag
+        @return str: The software id and tag
         """
 
-        return f"<PluginTag {self.plugin_id} {self.tag}>"
+        return f"<SoftwareTag {self.software_id} {self.tag}>"

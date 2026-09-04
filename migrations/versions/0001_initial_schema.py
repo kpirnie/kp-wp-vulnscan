@@ -56,13 +56,13 @@ def upgrade() -> None:
     )
     op.create_table('feeds',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('source', sa.Enum('WORDFENCE', 'NVD', 'CVE', 'LOCAL', name='feedsource', native_enum=False, length=32), nullable=False),
+    sa.Column('source', sa.Enum('wordfence', 'nvd', 'cve', 'local', name='feedsource', native_enum=False, length=32), nullable=False),
     sa.Column('name', sa.String(length=128), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('enabled', sa.Boolean(), nullable=False),
     sa.Column('priority', sa.Integer(), nullable=False),
     sa.Column('url', sa.String(length=1024), nullable=False),
-    sa.Column('auth_type', sa.Enum('NONE', 'BEARER', 'HEADER', 'QUERY', name='feedauth', native_enum=False, length=16), nullable=False),
+    sa.Column('auth_type', sa.Enum('none', 'bearer', 'header', 'query', name='feedauth', native_enum=False, length=16), nullable=False),
     sa.Column('auth_param', sa.String(length=64), nullable=True),
     sa.Column('api_key_encrypted', sa.Text(), nullable=True),
     sa.Column('timeout', sa.Integer(), nullable=False),
@@ -85,9 +85,10 @@ def upgrade() -> None:
     mysql_collate='utf8mb4_unicode_ci',
     mysql_engine='InnoDB'
     )
-    op.create_table('plugins',
+    op.create_table('software',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('slug', sa.String(length=255), nullable=False),
+    sa.Column('software_type', sa.Enum('plugin', 'theme', 'core', name='softwaretype', native_enum=False, length=16), nullable=False),
     sa.Column('name', sa.String(length=512), nullable=False),
     sa.Column('version', sa.String(length=64), nullable=True),
     sa.Column('version_key', sa.String(length=80), nullable=True),
@@ -107,7 +108,7 @@ def upgrade() -> None:
     sa.Column('support_threads_resolved', sa.Integer(), nullable=False),
     sa.Column('added_on', sa.Date(), nullable=True),
     sa.Column('last_updated', sa.DateTime(), nullable=True),
-    sa.Column('status', sa.Enum('ACTIVE', 'CLOSED', 'ABANDONED', 'MISSING', name='pluginstatus', native_enum=False, length=32), nullable=False),
+    sa.Column('status', sa.Enum('active', 'closed', 'abandoned', 'missing', 'premium', name='softwarestatus', native_enum=False, length=32), nullable=False),
     sa.Column('closed_reason', sa.String(length=255), nullable=True),
     sa.Column('closed_at', sa.DateTime(), nullable=True),
     sa.Column('issue_count', sa.Integer(), nullable=False),
@@ -121,25 +122,25 @@ def upgrade() -> None:
     sa.Column('last_scanned_at', sa.DateTime(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.PrimaryKeyConstraint('id', name=op.f('pk_plugins')),
-    sa.UniqueConstraint('slug', name=op.f('uq_plugins_slug')),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_software')),
+    sa.UniqueConstraint('slug', 'software_type', name='uq_software_slug_software_type'),
     mysql_charset='utf8mb4',
     mysql_collate='utf8mb4_unicode_ci',
     mysql_engine='InnoDB'
     )
-    op.create_index(op.f('ix_plugins_issue_count'), 'plugins', ['issue_count'], unique=False)
-    op.create_index(op.f('ix_plugins_last_crawled'), 'plugins', ['last_crawled'], unique=False)
-    op.create_index(op.f('ix_plugins_last_updated'), 'plugins', ['last_updated'], unique=False)
-    op.create_index('ix_plugins_priority', 'plugins', ['priority_score', 'issue_count'], unique=False)
-    op.create_index('ix_plugins_status_installs', 'plugins', ['status', 'active_installs'], unique=False)
-    op.create_index(op.f('ix_plugins_version_key'), 'plugins', ['version_key'], unique=False)
+    op.create_index(op.f('ix_software_issue_count'), 'software', ['issue_count'], unique=False)
+    op.create_index(op.f('ix_software_last_crawled'), 'software', ['last_crawled'], unique=False)
+    op.create_index(op.f('ix_software_last_updated'), 'software', ['last_updated'], unique=False)
+    op.create_index('ix_software_priority', 'software', ['priority_score', 'issue_count'], unique=False)
+    op.create_index('ix_software_status_installs', 'software', ['status', 'active_installs'], unique=False)
+    op.create_index(op.f('ix_software_version_key'), 'software', ['version_key'], unique=False)
     op.create_table('users',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('username', sa.String(length=64), nullable=False),
     sa.Column('email', sa.String(length=255), nullable=True),
     sa.Column('display_name', sa.String(length=255), nullable=True),
     sa.Column('password_hash', sa.String(length=255), nullable=False),
-    sa.Column('role', sa.Enum('ADMIN', 'MANAGER', 'USER', name='userrole', native_enum=False, length=16), nullable=False),
+    sa.Column('role', sa.Enum('admin', 'manager', 'user', name='userrole', native_enum=False, length=16), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('must_change_password', sa.Boolean(), nullable=False),
     sa.Column('last_login_at', sa.DateTime(), nullable=True),
@@ -157,7 +158,7 @@ def upgrade() -> None:
     )
     op.create_table('vulnerabilities',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('source', sa.Enum('WORDFENCE', 'NVD', 'CVE', 'LOCAL', name='feedsource', native_enum=False, length=32), nullable=False),
+    sa.Column('source', sa.Enum('wordfence', 'nvd', 'cve', 'local', name='feedsource', native_enum=False, length=32), nullable=False),
     sa.Column('source_id', sa.String(length=191), nullable=False),
     sa.Column('cve', sa.String(length=32), nullable=True),
     sa.Column('cve_link', sa.String(length=1024), nullable=True),
@@ -167,7 +168,7 @@ def upgrade() -> None:
     sa.Column('cwe_name', sa.String(length=512), nullable=True),
     sa.Column('cvss_score', sa.Float(), nullable=True),
     sa.Column('cvss_vector', sa.String(length=255), nullable=True),
-    sa.Column('severity', sa.Enum('NONE', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL', name='severity', native_enum=False, length=16), nullable=False),
+    sa.Column('severity', sa.Enum('none', 'low', 'medium', 'high', 'critical', name='severity', native_enum=False, length=16), nullable=False),
     sa.Column('informational', sa.Boolean(), nullable=False),
     sa.Column('references', sa.JSON(), nullable=True),
     sa.Column('researchers', sa.JSON(), nullable=True),
@@ -210,42 +211,11 @@ def upgrade() -> None:
     )
     op.create_index('ix_audit_log_created_action', 'audit_log', ['created_at', 'action'], unique=False)
     op.create_index(op.f('ix_audit_log_created_at'), 'audit_log', ['created_at'], unique=False)
-    op.create_table('plugin_tags',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('plugin_id', sa.Integer(), nullable=False),
-    sa.Column('tag', sa.String(length=191), nullable=False),
-    sa.ForeignKeyConstraint(['plugin_id'], ['plugins.id'], name=op.f('fk_plugin_tags_plugin_id_plugins'), ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id', name=op.f('pk_plugin_tags')),
-    sa.UniqueConstraint('plugin_id', 'tag', name='uq_plugin_tags_plugin_id_tag'),
-    mysql_charset='utf8mb4',
-    mysql_collate='utf8mb4_unicode_ci',
-    mysql_engine='InnoDB'
-    )
-    op.create_index(op.f('ix_plugin_tags_tag'), 'plugin_tags', ['tag'], unique=False)
-    op.create_table('plugin_versions',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('plugin_id', sa.Integer(), nullable=False),
-    sa.Column('version', sa.String(length=64), nullable=False),
-    sa.Column('version_key', sa.String(length=80), nullable=False),
-    sa.Column('download_link', sa.String(length=1024), nullable=True),
-    sa.Column('is_current', sa.Boolean(), nullable=False),
-    sa.Column('released_at', sa.DateTime(), nullable=True),
-    sa.Column('first_seen', sa.DateTime(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['plugin_id'], ['plugins.id'], name=op.f('fk_plugin_versions_plugin_id_plugins'), ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id', name=op.f('pk_plugin_versions')),
-    sa.UniqueConstraint('plugin_id', 'version', name='uq_plugin_versions_plugin_id_version'),
-    mysql_charset='utf8mb4',
-    mysql_collate='utf8mb4_unicode_ci',
-    mysql_engine='InnoDB'
-    )
-    op.create_index('ix_plugin_versions_plugin_key', 'plugin_versions', ['plugin_id', 'version_key'], unique=False)
     op.create_table('runs',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('kind', sa.Enum('SCAN', 'CRAWL', 'FEEDS', 'MATCH', 'REPORT', 'SOURCE_SCAN', name='runkind', native_enum=False, length=32), nullable=False),
-    sa.Column('trigger', sa.Enum('CRON', 'MANUAL', 'UI', name='runtrigger', native_enum=False, length=16), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'RUNNING', 'SUCCESS', 'PARTIAL', 'FAILED', 'CANCELLED', name='runstatus', native_enum=False, length=16), nullable=False),
+    sa.Column('kind', sa.Enum('scan', 'crawl', 'feeds', 'match', 'report', 'source_scan', name='runkind', native_enum=False, length=32), nullable=False),
+    sa.Column('trigger', sa.Enum('cron', 'manual', 'ui', name='runtrigger', native_enum=False, length=16), nullable=False),
+    sa.Column('status', sa.Enum('pending', 'running', 'success', 'partial', 'failed', 'cancelled', name='runstatus', native_enum=False, length=16), nullable=False),
     sa.Column('started_by_id', sa.Integer(), nullable=True),
     sa.Column('started_at', sa.DateTime(), nullable=True),
     sa.Column('finished_at', sa.DateTime(), nullable=True),
@@ -283,6 +253,37 @@ def upgrade() -> None:
     mysql_collate='utf8mb4_unicode_ci',
     mysql_engine='InnoDB'
     )
+    op.create_table('software_tags',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('software_id', sa.Integer(), nullable=False),
+    sa.Column('tag', sa.String(length=191), nullable=False),
+    sa.ForeignKeyConstraint(['software_id'], ['software.id'], name=op.f('fk_software_tags_software_id_software'), ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_software_tags')),
+    sa.UniqueConstraint('software_id', 'tag', name='uq_software_tags_software_id_tag'),
+    mysql_charset='utf8mb4',
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_engine='InnoDB'
+    )
+    op.create_index(op.f('ix_software_tags_tag'), 'software_tags', ['tag'], unique=False)
+    op.create_table('software_versions',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('software_id', sa.Integer(), nullable=False),
+    sa.Column('version', sa.String(length=64), nullable=False),
+    sa.Column('version_key', sa.String(length=80), nullable=False),
+    sa.Column('download_link', sa.String(length=1024), nullable=True),
+    sa.Column('is_current', sa.Boolean(), nullable=False),
+    sa.Column('released_at', sa.DateTime(), nullable=True),
+    sa.Column('first_seen', sa.DateTime(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['software_id'], ['software.id'], name=op.f('fk_software_versions_software_id_software'), ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id', name=op.f('pk_software_versions')),
+    sa.UniqueConstraint('software_id', 'version', name='uq_software_versions_software_id_version'),
+    mysql_charset='utf8mb4',
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_engine='InnoDB'
+    )
+    op.create_index('ix_software_versions_software_key', 'software_versions', ['software_id', 'version_key'], unique=False)
     op.create_table('user_sessions',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('token_hash', sa.String(length=64), nullable=False),
@@ -305,7 +306,7 @@ def upgrade() -> None:
     op.create_table('vulnerability_affects',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('vulnerability_id', sa.Integer(), nullable=False),
-    sa.Column('software_type', sa.Enum('PLUGIN', 'THEME', 'CORE', name='softwaretype', native_enum=False, length=16), nullable=False),
+    sa.Column('software_type', sa.Enum('plugin', 'theme', 'core', name='softwaretype', native_enum=False, length=16), nullable=False),
     sa.Column('slug', sa.String(length=255), nullable=False),
     sa.Column('software_name', sa.String(length=512), nullable=True),
     sa.Column('from_version', sa.String(length=64), nullable=True),
@@ -327,12 +328,12 @@ def upgrade() -> None:
     op.create_index('ix_vulnerability_affects_slug_type', 'vulnerability_affects', ['slug', 'software_type'], unique=False)
     op.create_table('findings',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('plugin_id', sa.Integer(), nullable=False),
+    sa.Column('software_id', sa.Integer(), nullable=False),
     sa.Column('vulnerability_id', sa.Integer(), nullable=False),
     sa.Column('affect_id', sa.Integer(), nullable=True),
     sa.Column('matched_version', sa.String(length=64), nullable=True),
-    sa.Column('severity', sa.Enum('NONE', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL', name='severity', native_enum=False, length=16), nullable=False),
-    sa.Column('status', sa.Enum('OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'IGNORED', 'FALSE_POSITIVE', name='findingstatus', native_enum=False, length=32), nullable=False),
+    sa.Column('severity', sa.Enum('none', 'low', 'medium', 'high', 'critical', name='severity', native_enum=False, length=16), nullable=False),
+    sa.Column('status', sa.Enum('open', 'acknowledged', 'in_progress', 'resolved', 'ignored', 'false_positive', name='findingstatus', native_enum=False, length=32), nullable=False),
     sa.Column('assigned_to_id', sa.Integer(), nullable=True),
     sa.Column('notes', sa.Text(), nullable=True),
     sa.Column('fix_available', sa.Boolean(), nullable=False),
@@ -348,21 +349,21 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['assigned_to_id'], ['users.id'], name=op.f('fk_findings_assigned_to_id_users'), ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['first_run_id'], ['runs.id'], name=op.f('fk_findings_first_run_id_runs'), ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['last_run_id'], ['runs.id'], name=op.f('fk_findings_last_run_id_runs'), ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['plugin_id'], ['plugins.id'], name=op.f('fk_findings_plugin_id_plugins'), ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['software_id'], ['software.id'], name=op.f('fk_findings_software_id_software'), ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['vulnerability_id'], ['vulnerabilities.id'], name=op.f('fk_findings_vulnerability_id_vulnerabilities'), ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_findings')),
-    sa.UniqueConstraint('plugin_id', 'vulnerability_id', name='uq_findings_plugin_id_vulnerability_id'),
+    sa.UniqueConstraint('software_id', 'vulnerability_id', name='uq_findings_software_id_vulnerability_id'),
     mysql_charset='utf8mb4',
     mysql_collate='utf8mb4_unicode_ci',
     mysql_engine='InnoDB'
     )
-    op.create_index('ix_findings_plugin_status', 'findings', ['plugin_id', 'status'], unique=False)
+    op.create_index('ix_findings_software_status', 'findings', ['software_id', 'status'], unique=False)
     op.create_index(op.f('ix_findings_status'), 'findings', ['status'], unique=False)
     op.create_index('ix_findings_status_severity', 'findings', ['status', 'severity'], unique=False)
     op.create_table('reports',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('run_id', sa.Integer(), nullable=False),
-    sa.Column('format', sa.Enum('JSON', 'HTML', name='reportformat', native_enum=False, length=16), nullable=False),
+    sa.Column('format', sa.Enum('json', 'html', name='reportformat', native_enum=False, length=16), nullable=False),
     sa.Column('path', sa.String(length=1024), nullable=True),
     sa.Column('size_bytes', sa.BigInteger(), nullable=True),
     sa.Column('summary', sa.JSON(), nullable=True),
@@ -381,7 +382,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('run_id', sa.Integer(), nullable=False),
     sa.Column('stage', sa.String(length=64), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'RUNNING', 'SUCCESS', 'PARTIAL', 'FAILED', 'CANCELLED', name='runstatus', native_enum=False, length=16), nullable=False),
+    sa.Column('status', sa.Enum('pending', 'running', 'success', 'partial', 'failed', 'cancelled', name='runstatus', native_enum=False, length=16), nullable=False),
     sa.Column('started_at', sa.DateTime(), nullable=True),
     sa.Column('finished_at', sa.DateTime(), nullable=True),
     sa.Column('stats', sa.JSON(), nullable=True),
@@ -398,7 +399,7 @@ def upgrade() -> None:
     sa.Column('run_id', sa.Integer(), nullable=True),
     sa.Column('url', sa.String(length=1024), nullable=False),
     sa.Column('format', sa.String(length=16), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'DELIVERED', 'RETRYING', 'FAILED', 'SKIPPED', name='deliverystatus', native_enum=False, length=16), nullable=False),
+    sa.Column('status', sa.Enum('pending', 'delivered', 'retrying', 'failed', 'skipped', name='deliverystatus', native_enum=False, length=16), nullable=False),
     sa.Column('attempts', sa.Integer(), nullable=False),
     sa.Column('response_code', sa.Integer(), nullable=True),
     sa.Column('response_body', sa.Text(), nullable=True),
@@ -416,7 +417,7 @@ def upgrade() -> None:
     op.create_table('finding_events',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('finding_id', sa.Integer(), nullable=False),
-    sa.Column('event_type', sa.Enum('CREATED', 'STATUS_CHANGED', 'ASSIGNED', 'COMMENTED', 'REOPENED', 'AUTO_RESOLVED', name='findingeventtype', native_enum=False, length=32), nullable=False),
+    sa.Column('event_type', sa.Enum('created', 'status_changed', 'assigned', 'commented', 'reopened', 'auto_resolved', name='findingeventtype', native_enum=False, length=32), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('old_value', sa.String(length=255), nullable=True),
     sa.Column('new_value', sa.String(length=255), nullable=True),
@@ -451,13 +452,13 @@ def downgrade() -> None:
     op.drop_table("findings")
     op.drop_table("vulnerability_affects")
     op.drop_table("user_sessions")
+    op.drop_table("software_versions")
+    op.drop_table("software_tags")
     op.drop_table("settings")
     op.drop_table("runs")
-    op.drop_table("plugin_versions")
-    op.drop_table("plugin_tags")
     op.drop_table("audit_log")
     op.drop_table("vulnerabilities")
     op.drop_table("users")
-    op.drop_table("plugins")
+    op.drop_table("software")
     op.drop_table("feeds")
     op.drop_table("crawl_checkpoints")

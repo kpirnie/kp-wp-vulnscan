@@ -19,7 +19,7 @@ from kpwpvs.models.finding import (
     FindingEventType,
     FindingStatus,
 )
-from kpwpvs.models.plugin import Plugin, PluginStatus, PluginTag, PluginVersion
+from kpwpvs.models.software import Software, SoftwareStatus, SoftwareTag, SoftwareVersion
 from kpwpvs.models.report import (
     DeliveryStatus,
     Report,
@@ -57,10 +57,6 @@ __all__ = [
     "FindingEvent",
     "FindingEventType",
     "FindingStatus",
-    "Plugin",
-    "PluginStatus",
-    "PluginTag",
-    "PluginVersion",
     "Report",
     "ReportFormat",
     "Run",
@@ -70,7 +66,11 @@ __all__ = [
     "RunTrigger",
     "Setting",
     "Severity",
+    "Software",
+    "SoftwareStatus",
+    "SoftwareTag",
     "SoftwareType",
+    "SoftwareVersion",
     "TimestampMixin",
     "User",
     "UserRole",

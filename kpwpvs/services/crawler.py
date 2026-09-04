@@ -19,7 +19,14 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from kpwpvs.models import CrawlCheckpoint, Plugin, PluginStatus, PluginTag, PluginVersion
+from kpwpvs.models import (
+    CrawlCheckpoint,
+    Software,
+    SoftwareStatus,
+    SoftwareTag,
+    SoftwareType,
+    SoftwareVersion,
+)
 from kpwpvs.services.settings_service import SettingsService
 from kpwpvs.sources.wporg import PluginRecord, WporgClient
 from kpwpvs.utils.version import sort_key
@@ -125,11 +132,19 @@ class Crawler:
         """
 
         # find it by slug, that is the identity
-        plugin = self._session.execute(select(Plugin).where(Plugin.slug == record.slug)).scalar_one_or_none()
+        plugin = self._session.execute(select(Software).where(
+                Software.slug == record.slug,
+                Software.software_type == SoftwareType.PLUGIN,
+            )).scalar_one_or_none()
 
         # brand new to us
         if plugin is None:
-            plugin = Plugin(slug=record.slug, first_seen=now, status=PluginStatus.ACTIVE)
+            plugin = Software(
+                slug=record.slug,
+                software_type=SoftwareType.PLUGIN,
+                first_seen=now,
+                status=SoftwareStatus.ACTIVE,
+            )
             self._session.add(plugin)
             stats.added += 1
             is_new = True
@@ -168,8 +183,8 @@ class Crawler:
         plugin.last_crawled = now
 
         # something that is back in the catalog is no longer missing
-        if plugin.status in (PluginStatus.MISSING, PluginStatus.CLOSED):
-            plugin.status = PluginStatus.ACTIVE
+        if plugin.status in (SoftwareStatus.MISSING, SoftwareStatus.CLOSED):
+            plugin.status = SoftwareStatus.ACTIVE
             plugin.closed_reason = None
             plugin.closed_at = None
 
@@ -177,11 +192,11 @@ class Crawler:
         # its own, it will never be patched no matter what turns up in it
         abandoned_days = self._config.get("abandoned_after_days", 730)
         if record.last_updated and record.last_updated < now - timedelta(days=abandoned_days):
-            if plugin.status is PluginStatus.ACTIVE:
-                plugin.status = PluginStatus.ABANDONED
+            if plugin.status is SoftwareStatus.ACTIVE:
+                plugin.status = SoftwareStatus.ABANDONED
                 stats.marked_abandoned += 1
-        elif plugin.status is PluginStatus.ABANDONED:
-            plugin.status = PluginStatus.ACTIVE
+        elif plugin.status is SoftwareStatus.ABANDONED:
+            plugin.status = SoftwareStatus.ACTIVE
 
         # we need the id before anything can hang off it
         self._session.flush()
@@ -201,14 +216,14 @@ class Crawler:
         else:
             stats.unchanged += 1
 
-    def _record_version(self, plugin: Plugin, record: PluginRecord, stats: CrawlStats, now: datetime) -> None:
+    def _record_version(self, plugin: Software, record: PluginRecord, stats: CrawlStats, now: datetime) -> None:
         """
         Note the currently published version of a plugin
 
         We only ever see the current version through the api, so the
         version history builds up over time as the catalog moves.
 
-        @param plugin: Plugin The plugin row
+        @param plugin: Software The plugin row
         @param record: PluginRecord The record from the api
         @param stats: CrawlStats The running counters to update
         @param now: datetime The timestamp to stamp this crawl with
@@ -217,22 +232,22 @@ class Crawler:
 
         # look for this exact version
         existing = self._session.execute(
-            select(PluginVersion).where(
-                PluginVersion.plugin_id == plugin.id,
-                PluginVersion.version == record.version,
+            select(SoftwareVersion).where(
+                SoftwareVersion.software_id == plugin.id,
+                SoftwareVersion.version == record.version,
             )
         ).scalar_one_or_none()
 
         # new to us, so record it and demote whatever was current
         if existing is None:
             self._session.execute(
-                PluginVersion.__table__.update()
-                .where(PluginVersion.plugin_id == plugin.id)
+                SoftwareVersion.__table__.update()
+                .where(SoftwareVersion.software_id == plugin.id)
                 .values(is_current=False)
             )
             self._session.add(
-                PluginVersion(
-                    plugin_id=plugin.id,
+                SoftwareVersion(
+                    software_id=plugin.id,
                     version=record.version,
                     version_key=sort_key(record.version),
                     download_link=record.download_link,
@@ -247,17 +262,17 @@ class Crawler:
         # already known, just make sure it is flagged as the current one
         if not existing.is_current:
             self._session.execute(
-                PluginVersion.__table__.update()
-                .where(PluginVersion.plugin_id == plugin.id)
+                SoftwareVersion.__table__.update()
+                .where(SoftwareVersion.software_id == plugin.id)
                 .values(is_current=False)
             )
             existing.is_current = True
 
-    def _sync_tags(self, plugin: Plugin, record: PluginRecord) -> None:
+    def _sync_tags(self, plugin: Software, record: PluginRecord) -> None:
         """
         Bring a plugin's tags in line with the catalog
 
-        @param plugin: Plugin The plugin row
+        @param plugin: Software The plugin row
         @param record: PluginRecord The record from the api
         @return None
         """
@@ -268,7 +283,7 @@ class Crawler:
 
         # add the new ones
         for tag in incoming - existing:
-            self._session.add(PluginTag(plugin_id=plugin.id, tag=tag))
+            self._session.add(SoftwareTag(software_id=plugin.id, tag=tag))
 
         # and drop the ones that went away
         for row in list(plugin.tags):

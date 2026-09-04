@@ -67,26 +67,26 @@ class FindingEventType(enum.StrEnum):
 
 class Finding(TimestampMixin, Base):
     """
-    A vulnerability matched against a catalogued plugin
+    A vulnerability matched against a catalogued entry
 
-    One row per plugin and vulnerability pairing. Re-running the matcher
+    One row per software and vulnerability pairing. Re-running the matcher
     updates the existing row rather than piling up duplicates, so the
     workflow state people set is never lost.
     """
 
     __tablename__ = "findings"
     __table_args__ = (
-        UniqueConstraint("plugin_id", "vulnerability_id", name="uq_findings_plugin_id_vulnerability_id"),
+        UniqueConstraint("software_id", "vulnerability_id", name="uq_findings_software_id_vulnerability_id"),
         Index("ix_findings_status_severity", "status", "severity"),
-        Index("ix_findings_plugin_status", "plugin_id", "status"),
+        Index("ix_findings_software_status", "software_id", "status"),
         TABLE_ARGS,
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    plugin_id: Mapped[int] = mapped_column(
+    software_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("plugins.id", ondelete="CASCADE"),
+        ForeignKey("software.id", ondelete="CASCADE"),
         nullable=False,
     )
     vulnerability_id: Mapped[int] = mapped_column(
@@ -159,10 +159,10 @@ class Finding(TimestampMixin, Base):
         """
         Readable representation for logs and the shell
 
-        @return str: The plugin, vulnerability, and current status
+        @return str: The software, vulnerability, and current status
         """
 
-        return f"<Finding p{self.plugin_id} v{self.vulnerability_id} {self.status}>"
+        return f"<Finding s{self.software_id} v{self.vulnerability_id} {self.status}>"
 
 
 class FindingEvent(Base):
