@@ -1,4 +1,4 @@
-# kp-wp-vulnscan
+# KP WordPress Vulnerability Scan
 
 An open source WordPress plugin vulnerability scanner and reporter.
 
@@ -7,7 +7,7 @@ against known vulnerability feeds, ranks plugins by how many issues
 they have accumulated, and reports on all of it. Runs as a podman
 container, scheduled from the host.
 
-## status
+## Status
 
 Early development. Built in stages:
 
@@ -24,7 +24,7 @@ Early development. Built in stages:
 Phase two adds local source scanning of plugin zips, optionally
 AI assisted.
 
-## configuration
+## Configuration
 
 There is no config file. The environment carries the database connection
 and the secret key, both set in `docker-compose.yaml` so there is no
@@ -55,7 +55,7 @@ KPWPVS_DATABASE_PASSWORD_FILE=/run/secrets/db_password
 The three vulnerability feeds are seeded on first migration and are
 editable from the interface, endpoint included, because these do move.
 
-## usage
+## Usage
 
 ```
 kpwpvs scan              # the full pipeline, this is what cron calls
@@ -67,9 +67,9 @@ kpwpvs db init|upgrade|status
 kpwpvs web               # run the web interface
 ```
 
-## requirements
+## Requirements
 
-Python 3.14.7 or newer, MariaDB or MySQL.
+Podman/Docker (recommended) Python 3.14.7 or newer, MariaDB or MySQL.
 
 ## License
 
