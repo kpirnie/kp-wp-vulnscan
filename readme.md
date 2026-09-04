@@ -11,9 +11,9 @@
 **STACK**
 
 [![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white&style=for-the-badge&labelColor=000)](https://python.org)
-[![MariaDB](https://img.shields.io/badge/Min.%20MariaDB-11.4-003545?logo=mariadb&logoColor=white&style=for-the-badge&labelColor=000)](https://mariadb.org/)
+[![MariaDB](https://img.shields.io/badge/Min.%20MariaDB-12.3-003545?logo=mariadb&logoColor=white&style=for-the-badge&labelColor=000)](https://mariadb.org/)
 [![WordPress](https://img.shields.io/badge/Up%20To%20WP-7.1-3858e9?logo=wordpress&logoColor=white&style=for-the-badge&labelColor=000)](https://wordpress.org)
-[![Debian](https://img.shields.io/badge/Base-Debian%20Trixie-A81D33?logo=debian&logoColor=white&style=for-the-badge&labelColor=000)](https://www.debian.org/)
+[![Ubuntu](https://img.shields.io/badge/Base-Ubuntu%20Noble-E95420?logo=ubuntu&logoColor=white&style=for-the-badge&labelColor=000)](https://ubuntu.com/)
 
 **PLUG**
 
