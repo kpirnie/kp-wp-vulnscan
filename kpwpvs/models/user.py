@@ -19,7 +19,6 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
-    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -28,7 +27,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin
+from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
 
 
 class UserRole(enum.StrEnum):
@@ -82,7 +81,7 @@ class User(TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, native_enum=False, length=16),
+        enum_column(UserRole, 16),
         nullable=False,
         default=UserRole.USER,
     )

@@ -17,7 +17,6 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     DateTime,
-    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -26,7 +25,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin
+from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
 
 
 class ReportFormat(enum.StrEnum):
@@ -78,7 +77,7 @@ class Report(TimestampMixin, Base):
     )
 
     format: Mapped[ReportFormat] = mapped_column(
-        Enum(ReportFormat, native_enum=False, length=16),
+        enum_column(ReportFormat, 16),
         nullable=False,
     )
 
@@ -128,7 +127,7 @@ class WebhookDelivery(TimestampMixin, Base):
     format: Mapped[str] = mapped_column(String(16), nullable=False, default="generic")
 
     status: Mapped[DeliveryStatus] = mapped_column(
-        Enum(DeliveryStatus, native_enum=False, length=16),
+        enum_column(DeliveryStatus, 16),
         nullable=False,
         default=DeliveryStatus.PENDING,
     )

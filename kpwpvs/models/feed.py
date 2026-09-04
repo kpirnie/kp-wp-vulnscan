@@ -19,14 +19,13 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
-    Enum,
     Integer,
     String,
     Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin
+from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
 from kpwpvs.models.vulnerability import FeedSource
 
 
@@ -59,7 +58,7 @@ class Feed(TimestampMixin, Base):
 
     # which source this is, ties rows here to the vulnerabilities they produce
     source: Mapped[FeedSource] = mapped_column(
-        Enum(FeedSource, native_enum=False, length=32),
+        enum_column(FeedSource, 32),
         nullable=False,
         unique=True,
     )
@@ -77,7 +76,7 @@ class Feed(TimestampMixin, Base):
     # how to authenticate, and the name of the header or query parameter
     # when the scheme needs one
     auth_type: Mapped[FeedAuth] = mapped_column(
-        Enum(FeedAuth, native_enum=False, length=16),
+        enum_column(FeedAuth, 16),
         nullable=False,
         default=FeedAuth.NONE,
     )

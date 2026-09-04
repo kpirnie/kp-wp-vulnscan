@@ -19,7 +19,6 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
-    Enum,
     Float,
     ForeignKey,
     Index,
@@ -30,7 +29,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin
+from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
 
 
 class PluginStatus(enum.StrEnum):
@@ -102,7 +101,7 @@ class Plugin(TimestampMixin, Base):
 
     # where it stands, and why if it is closed
     status: Mapped[PluginStatus] = mapped_column(
-        Enum(PluginStatus, native_enum=False, length=32),
+        enum_column(PluginStatus, 32),
         nullable=False,
         default=PluginStatus.ACTIVE,
     )

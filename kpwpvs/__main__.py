@@ -12,15 +12,18 @@ weekly scan, the individual pipeline stages, and the web interface.
 
 # setup the imports
 import argparse
+import asyncio
 import logging
 import sys
 import time
 
 from kpwpvs import __version__
 from kpwpvs.core.config import BootstrapConfig, load_config
-from kpwpvs.core.db import ping
+from kpwpvs.core.db import init_engine, ping, session_scope
 from kpwpvs.core.logging import setup_logging
-from kpwpvs.core.migrate import current_revision, downgrade, head_revision, upgrade
+from kpwpvs.core.migrate import current_revision, downgrade, head_revision, is_current, upgrade
+from kpwpvs.services.crawler import Crawler
+from kpwpvs.services.settings_service import SettingsService
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     # pull the wordpress.org plugin catalog
     crawl = sub.add_parser("crawl", help="crawl the wordpress.org plugin repository")
     crawl.add_argument("--full", action="store_true", help="force a full seed crawl instead of incremental")
+    crawl.add_argument("--max-pages", type=int, help="stop after this many pages, for a quick look")
 
     # refresh the vulnerability feeds
     sub.add_parser("feeds", help="refresh the vulnerability feeds")
@@ -139,6 +143,50 @@ def handle_db(config: BootstrapConfig, args: argparse.Namespace) -> int:
     return 1
 
 
+def handle_crawl(config: BootstrapConfig, args: argparse.Namespace) -> int:
+    """
+    Handle the catalog crawl subcommand
+
+    Walks the wordpress.org plugin repository into the database, seeding
+    it on the first run and only catching up on every run after.
+
+    @param config: BootstrapConfig The bootstrap configuration
+    @param args: argparse.Namespace The parsed command line arguments
+    @return int: The process exit code, zero on success
+    """
+
+    # the schema has to be current before we write anything to it
+    if not ping(config):
+        logger.error("cannot reach the database at %s:%s", config.database.host, config.database.port)
+        return 1
+    if not is_current(config):
+        logger.error("database schema is out of date, run 'kpwpvs db upgrade' first")
+        return 1
+
+    init_engine(config)
+
+    # run it, the http side is async and the database side is not
+    try:
+        with session_scope() as session:
+            crawler = Crawler(session, SettingsService(session))
+            stats = asyncio.run(crawler.crawl(full=args.full, max_pages=args.max_pages))
+    except Exception as exc:
+        logger.error("crawl failed: %s", exc, exc_info=logger.isEnabledFor(logging.DEBUG))
+        return 1
+
+    # say what happened, in something a human can read
+    logger.info(
+        "%s plugins seen, %s new, %s updated, %s unchanged, %s new versions",
+        stats.seen,
+        stats.added,
+        stats.updated,
+        stats.unchanged,
+        stats.versions_added,
+    )
+
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """
     Application entry point
@@ -169,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
     # dispatch to the handler
     if args.command == "db":
         return handle_db(config, args)
+    if args.command == "crawl":
+        return handle_crawl(config, args)
 
     # the pipeline stages land here as each one is built
     logger.error("command '%s' is not implemented yet", args.command)

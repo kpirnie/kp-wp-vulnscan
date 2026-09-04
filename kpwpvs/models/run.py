@@ -18,7 +18,6 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
-    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -27,7 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin
+from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
 
 
 class RunKind(enum.StrEnum):
@@ -93,16 +92,16 @@ class Run(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     kind: Mapped[RunKind] = mapped_column(
-        Enum(RunKind, native_enum=False, length=32),
+        enum_column(RunKind, 32),
         nullable=False,
     )
     trigger: Mapped[RunTrigger] = mapped_column(
-        Enum(RunTrigger, native_enum=False, length=16),
+        enum_column(RunTrigger, 16),
         nullable=False,
         default=RunTrigger.CRON,
     )
     status: Mapped[RunStatus] = mapped_column(
-        Enum(RunStatus, native_enum=False, length=16),
+        enum_column(RunStatus, 16),
         nullable=False,
         default=RunStatus.PENDING,
         index=True,
@@ -169,7 +168,7 @@ class RunStage(Base):
 
     stage: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[RunStatus] = mapped_column(
-        Enum(RunStatus, native_enum=False, length=16),
+        enum_column(RunStatus, 16),
         nullable=False,
         default=RunStatus.PENDING,
     )

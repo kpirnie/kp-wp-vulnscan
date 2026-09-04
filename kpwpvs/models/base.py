@@ -14,7 +14,9 @@ migrations stable.
 # setup the imports
 from datetime import datetime
 
-from sqlalchemy import DateTime, MetaData, func
+from enum import Enum as PyEnum
+
+from sqlalchemy import DateTime, Enum, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # without an explicit convention alembic invents constraint names and every
@@ -33,6 +35,30 @@ TABLE_ARGS = {
     "mysql_charset": "utf8mb4",
     "mysql_collate": "utf8mb4_unicode_ci",
 }
+
+
+def enum_column(enum_class: type[PyEnum], length: int = 32) -> Enum:
+    """
+    Build an enum column that stores the value rather than the name
+
+    SQLAlchemy stores enum names by default, so PluginStatus.ACTIVE lands
+    in the database as "ACTIVE" rather than "active". That reads badly in
+    raw sql and, worse, will not match anything a migration seeded using
+    the values. This pins it to the value everywhere.
+
+    @param enum_class: type[PyEnum] The python enum to store
+    @param length: int Width of the underlying varchar
+    @return Enum: A configured SQLAlchemy enum type
+    """
+
+    # native_enum off keeps this a plain varchar, which migrates far more
+    # easily than a real mysql ENUM does
+    return Enum(
+        enum_class,
+        native_enum=False,
+        length=length,
+        values_callable=lambda enum: [member.value for member in enum],
+    )
 
 
 class Base(DeclarativeBase):

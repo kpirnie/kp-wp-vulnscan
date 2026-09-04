@@ -18,7 +18,6 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean,
     DateTime,
-    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -29,7 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from kpwpvs.models.base import TABLE_ARGS, Base, TimestampMixin
+from kpwpvs.models.base import Base, TABLE_ARGS, TimestampMixin, enum_column
 from kpwpvs.models.vulnerability import Severity
 
 
@@ -108,14 +107,14 @@ class Finding(TimestampMixin, Base):
 
     # copied off the vulnerability so we can sort and filter without a join
     severity: Mapped[Severity] = mapped_column(
-        Enum(Severity, native_enum=False, length=16),
+        enum_column(Severity, 16),
         nullable=False,
         default=Severity.NONE,
     )
 
     # the workflow bits
     status: Mapped[FindingStatus] = mapped_column(
-        Enum(FindingStatus, native_enum=False, length=32),
+        enum_column(FindingStatus, 32),
         nullable=False,
         default=FindingStatus.OPEN,
         index=True,
@@ -188,7 +187,7 @@ class FindingEvent(Base):
     )
 
     event_type: Mapped[FindingEventType] = mapped_column(
-        Enum(FindingEventType, native_enum=False, length=32),
+        enum_column(FindingEventType, 32),
         nullable=False,
     )
 
