@@ -53,8 +53,8 @@ kpwpvs web               # run the web interface
 
 ## requirements
 
-Python 3.14, MariaDB or MySQL.
+Python 3.14.7 or newer, MariaDB or MySQL.
 
 ## license
 
-See `LICENSE`.
+MIT. See `LICENSE`.

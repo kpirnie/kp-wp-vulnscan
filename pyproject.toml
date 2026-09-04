@@ -7,8 +7,10 @@ name = "kp-wp-vulnscan"
 version = "0.1.0"
 description = "WordPress plugin vulnerability scanner and reporter"
 readme = "readme.md"
-requires-python = ">=3.14"
+requires-python = ">=3.14.7"
 authors = [{ name = "Kevin Pirnie", email = "me@kpirnie.com" }]
+license = "MIT"
+license-files = ["LICENSE"]
 dynamic = ["dependencies"]
 
 [project.scripts]
