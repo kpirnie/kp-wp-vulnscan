@@ -18,11 +18,16 @@ import sys
 import time
 
 from kpwpvs import __version__
+from sqlalchemy import select
+
 from kpwpvs.core.config import BootstrapConfig, load_config
+from kpwpvs.core.crypto import SecretBox
 from kpwpvs.core.db import init_engine, ping, session_scope
 from kpwpvs.core.logging import setup_logging
 from kpwpvs.core.migrate import current_revision, downgrade, head_revision, is_current, upgrade
+from kpwpvs.models import Feed
 from kpwpvs.services.crawler import Crawler
+from kpwpvs.services.feeds import FeedService
 from kpwpvs.services.settings_service import SettingsService
 
 logger = logging.getLogger(__name__)
@@ -58,7 +63,10 @@ def build_parser() -> argparse.ArgumentParser:
     crawl.add_argument("--max-pages", type=int, help="stop after this many pages, for a quick look")
 
     # refresh the vulnerability feeds
-    sub.add_parser("feeds", help="refresh the vulnerability feeds")
+    feeds = sub.add_parser("feeds", help="refresh the vulnerability feeds")
+    feeds.add_argument("--source", help="sync only this one feed, by source name")
+    feeds.add_argument("--list", action="store_true", help="list the configured feeds and exit")
+    feeds.add_argument("--set-key", metavar="SOURCE", help="store an api key for a feed, read from stdin")
 
     # match the feeds against the catalog
     sub.add_parser("match", help="match known vulnerabilities against the plugin catalog")
@@ -187,6 +195,91 @@ def handle_crawl(config: BootstrapConfig, args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_feeds(config: BootstrapConfig, args: argparse.Namespace) -> int:
+    """
+    Handle the vulnerability feed subcommand
+
+    Lists the configured feeds, stores an api key for one, or syncs them.
+
+    @param config: BootstrapConfig The bootstrap configuration
+    @param args: argparse.Namespace The parsed command line arguments
+    @return int: The process exit code, zero on success
+    """
+
+    # the schema has to be current before we touch anything
+    if not ping(config):
+        logger.error("cannot reach the database at %s:%s", config.database.host, config.database.port)
+        return 1
+    if not is_current(config):
+        logger.error("database schema is out of date, run 'kpwpvs db upgrade' first")
+        return 1
+
+    init_engine(config)
+
+    # the secret box is only buildable once a secret key is configured
+    secret_box = None
+    try:
+        secret_box = SecretBox(config.secret_key)
+    except ValueError:
+        logger.warning("no secret key configured, stored api keys cannot be read")
+
+    with session_scope() as session:
+        service = FeedService(session, secret_box)
+
+        # just show what is configured
+        if args.list:
+            for feed in session.execute(select(Feed).order_by(Feed.priority)).scalars():
+                logger.info(
+                    "%-10s priority %-4s %-9s key %-3s  %s",
+                    feed.source.value,
+                    feed.priority,
+                    "enabled" if feed.enabled else "disabled",
+                    "yes" if feed.has_api_key else "no",
+                    feed.url,
+                )
+            return 0
+
+        # store a key, read from stdin so it never lands in the shell history
+        if args.set_key:
+            if secret_box is None:
+                logger.error("set KPWPVS_SECRET_KEY before storing an api key")
+                return 1
+
+            feed = session.execute(select(Feed).where(Feed.source == args.set_key)).scalar_one_or_none()
+            if feed is None:
+                logger.error("no feed named '%s'", args.set_key)
+                return 1
+
+            key = sys.stdin.readline().strip()
+            if not key:
+                logger.error("nothing on stdin, no key stored")
+                return 1
+
+            feed.api_key_encrypted = secret_box.encrypt(key)
+            session.commit()
+            logger.info("stored an api key for %s", feed.source.value)
+            return 0
+
+        # otherwise sync, either one feed or all of them
+        if args.source:
+            feed = session.execute(select(Feed).where(Feed.source == args.source)).scalar_one_or_none()
+            if feed is None:
+                logger.error("no feed named '%s'", args.source)
+                return 1
+            results = {feed.source.value: service.sync_feed(feed)}
+        else:
+            results = service.sync_all()
+
+    # report what happened, and fail the command if nothing worked at all
+    if not results:
+        return 1
+
+    for source, stats in results.items():
+        logger.info("%s: %s", source, stats.as_dict())
+
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """
     Application entry point
@@ -219,6 +312,8 @@ def main(argv: list[str] | None = None) -> int:
         return handle_db(config, args)
     if args.command == "crawl":
         return handle_crawl(config, args)
+    if args.command == "feeds":
+        return handle_feeds(config, args)
 
     # the pipeline stages land here as each one is built
     logger.error("command '%s' is not implemented yet", args.command)

@@ -47,7 +47,7 @@ SEED_FEEDS = (
         "auth_type": "bearer",
         "auth_param": None,
         "timeout": 180,
-        "options": json.dumps({"format": "wordfence_v3"}),
+        "options": {"format": "wordfence_v3"},
         "is_builtin": True,
     },
     {
@@ -64,7 +64,7 @@ SEED_FEEDS = (
         "auth_type": "header",
         "auth_param": "apiKey",
         "timeout": 60,
-        "options": json.dumps({"lookback_days": 14, "results_per_page": 2000}),
+        "options": {"lookback_days": 14, "results_per_page": 2000},
         "is_builtin": True,
     },
     {
@@ -81,7 +81,7 @@ SEED_FEEDS = (
         "auth_type": "none",
         "auth_param": None,
         "timeout": 60,
-        "options": json.dumps({"lookback_days": 14}),
+        "options": {"lookback_days": 14},
         "is_builtin": True,
     },
 )
@@ -95,7 +95,9 @@ def upgrade() -> None:
     """
 
     # a lightweight table definition is enough for a bulk insert, we do not
-    # want the migration importing the live models and drifting with them
+    # want the migration importing the live models and drifting with them.
+    # note the options below are passed as plain dicts, sa.JSON encodes them
+    # for us and handing it a pre-encoded string stores a json string
     feeds = sa.table(
         "feeds",
         sa.column("source", sa.String),

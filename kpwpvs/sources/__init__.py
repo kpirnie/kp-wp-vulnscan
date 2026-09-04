@@ -10,7 +10,20 @@ Clients for the external services we pull data from.
 """
 
 # setup the imports
+from kpwpvs.sources.base import AffectRecord, VulnRecord
+from kpwpvs.sources.cve import CveClient
+from kpwpvs.sources.nvd import NvdClient
+from kpwpvs.sources.wordfence import WordfenceClient
 from kpwpvs.sources.wporg import PluginNotFound, PluginRecord, WporgClient
 
 # what this package hands out
-__all__ = ["PluginNotFound", "PluginRecord", "WporgClient"]
+__all__ = [
+    "AffectRecord",
+    "CveClient",
+    "NvdClient",
+    "PluginNotFound",
+    "PluginRecord",
+    "VulnRecord",
+    "WordfenceClient",
+    "WporgClient",
+]
