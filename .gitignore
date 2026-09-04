@@ -14,3 +14,6 @@ reports/
 # tooling
 .ruff_cache/
 .mypy_cache/
+
+# alembic bytecode
+migrations/versions/__pycache__/

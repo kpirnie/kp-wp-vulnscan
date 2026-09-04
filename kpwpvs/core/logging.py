@@ -22,6 +22,7 @@ NOISY_LOGGERS = (
     "urllib3",
     "asyncio",
     "sqlalchemy.engine",
+    "alembic.runtime.migration",
     "uvicorn.access",
     "multipart",
 )
