@@ -367,7 +367,7 @@ def upgrade() -> None:
     op.create_index('ix_findings_status_severity', 'findings', ['status', 'severity'], unique=False)
     op.create_table('reports',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('run_id', sa.Integer(), nullable=False),
+    sa.Column('run_id', sa.Integer(), nullable=True),
     sa.Column('format', sa.Enum('json', 'html', name='reportformat', native_enum=False, length=16), nullable=False),
     sa.Column('path', sa.String(length=1024), nullable=True),
     sa.Column('size_bytes', sa.BigInteger(), nullable=True),

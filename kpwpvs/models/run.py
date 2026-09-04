@@ -95,7 +95,9 @@ class Run(TimestampMixin, Base):
         enum_column(RunKind, 32),
         nullable=False,
     )
-    trigger: Mapped[RunTrigger] = mapped_column(
+    # named trigger_source rather than trigger, which is reserved in mysql
+    # and mariadb and makes hand written queries against this table fail
+    trigger_source: Mapped[RunTrigger] = mapped_column(
         enum_column(RunTrigger, 16),
         nullable=False,
         default=RunTrigger.CRON,

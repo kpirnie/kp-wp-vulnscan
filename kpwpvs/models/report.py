@@ -70,10 +70,12 @@ class Report(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    run_id: Mapped[int] = mapped_column(
+    # null when a report was generated on its own rather than as part of
+    # a run, which is what the report subcommand does
+    run_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("runs.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
 
     format: Mapped[ReportFormat] = mapped_column(

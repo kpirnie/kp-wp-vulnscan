@@ -25,10 +25,12 @@ from kpwpvs.core.crypto import SecretBox
 from kpwpvs.core.db import init_engine, ping, session_scope
 from kpwpvs.core.logging import setup_logging
 from kpwpvs.core.migrate import current_revision, downgrade, head_revision, is_current, upgrade
-from kpwpvs.models import Feed
+from kpwpvs.models import Feed, RunStatus, RunTrigger
 from kpwpvs.services.crawler import Crawler
 from kpwpvs.services.feeds import FeedService
 from kpwpvs.services.matcher import Matcher
+from kpwpvs.services.pipeline import Pipeline
+from kpwpvs.services.reporter import Reporter
 from kpwpvs.services.settings_service import SettingsService
 
 logger = logging.getLogger(__name__)
@@ -56,7 +58,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     # the whole pipeline, this is what cron calls
-    sub.add_parser("scan", help="run the full pipeline, crawl then feeds then match then report")
+    scan = sub.add_parser("scan", help="run the full pipeline, crawl then feeds then match then report")
+    scan.add_argument("--full", action="store_true", help="force a full seed crawl rather than incremental")
 
     # pull the wordpress.org plugin catalog
     crawl = sub.add_parser("crawl", help="crawl the wordpress.org plugin repository")
@@ -75,7 +78,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("match", help="match known vulnerabilities against the plugin catalog")
 
     # generate the reports for the latest run
-    sub.add_parser("report", help="generate reports for the most recent run")
+    report = sub.add_parser("report", help="generate reports without running the pipeline")
+    report.add_argument("--stdout", action="store_true", help="write the html to stdout instead of to disk")
 
     # database schema management
     db = sub.add_parser("db", help="database schema management")
@@ -327,6 +331,117 @@ def handle_match(config: BootstrapConfig, args: argparse.Namespace) -> int:
     return 0
 
 
+def _ready(config: BootstrapConfig) -> bool:
+    """
+    Check the database is reachable and the schema is current
+
+    @param config: BootstrapConfig The bootstrap configuration
+    @return bool: True when it is safe to proceed
+    """
+
+    # nothing works without these two
+    if not ping(config):
+        logger.error("cannot reach the database at %s:%s", config.database.host, config.database.port)
+        return False
+    if not is_current(config):
+        logger.error("database schema is out of date, run 'kpwpvs db upgrade' first")
+        return False
+
+    return True
+
+
+def _secret_box(config: BootstrapConfig) -> SecretBox | None:
+    """
+    Build a secret box, or explain why we cannot
+
+    @param config: BootstrapConfig The bootstrap configuration
+    @return SecretBox|None: The secret box, when a key is configured
+    """
+
+    # without a key the stored api keys are unreadable, which is worth
+    # saying out loud rather than failing mysteriously later
+    try:
+        return SecretBox(config.secret_key)
+    except ValueError:
+        logger.warning("no secret key configured, stored api keys cannot be read")
+        return None
+
+
+def handle_report(config: BootstrapConfig, args: argparse.Namespace) -> int:
+    """
+    Handle the reporting subcommand
+
+    Builds a report from what is already in the database, without
+    running any of the pipeline stages first.
+
+    @param config: BootstrapConfig The bootstrap configuration
+    @param args: argparse.Namespace The parsed command line arguments
+    @return int: The process exit code, zero on success
+    """
+
+    if not _ready(config):
+        return 1
+
+    init_engine(config)
+
+    try:
+        with session_scope() as session:
+            reporter = Reporter(session, SettingsService(session, _secret_box(config)))
+
+            # straight to stdout, handy for piping somewhere else
+            if args.stdout:
+                print(reporter.render_html(reporter.build_payload()))
+                return 0
+
+            payload = reporter.generate()
+
+    except Exception as exc:
+        logger.error("reporting failed: %s", exc, exc_info=logger.isEnabledFor(logging.DEBUG))
+        return 1
+
+    core = payload["core"]
+    logger.info(
+        "core %s with %s issue(s) in the current release, %s open plugin finding(s)",
+        core.get("current_version", "unknown"),
+        core.get("current_issue_count", 0),
+        payload["findings"]["plugin_total"],
+    )
+
+    return 0
+
+
+def handle_scan(config: BootstrapConfig, args: argparse.Namespace) -> int:
+    """
+    Handle the full pipeline subcommand
+
+    This is what cron calls. Every stage runs, a failing one is recorded
+    rather than abandoning the rest.
+
+    @param config: BootstrapConfig The bootstrap configuration
+    @param args: argparse.Namespace The parsed command line arguments
+    @return int: Zero when everything worked, one when anything did not
+    """
+
+    if not _ready(config):
+        return 1
+
+    init_engine(config)
+
+    try:
+        with session_scope() as session:
+            secret_box = _secret_box(config)
+            pipeline = Pipeline(session, SettingsService(session, secret_box), secret_box)
+            run = pipeline.run(trigger=RunTrigger.CRON, full_crawl=args.full)
+            status = run.status
+
+    except Exception as exc:
+        logger.error("the run failed: %s", exc, exc_info=logger.isEnabledFor(logging.DEBUG))
+        return 1
+
+    # a partial run is a non zero exit, cron should notice
+    return 0 if status is RunStatus.SUCCESS else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     """
     Application entry point
@@ -363,6 +478,10 @@ def main(argv: list[str] | None = None) -> int:
         return handle_feeds(config, args)
     if args.command == "match":
         return handle_match(config, args)
+    if args.command == "report":
+        return handle_report(config, args)
+    if args.command == "scan":
+        return handle_scan(config, args)
 
     # the pipeline stages land here as each one is built
     logger.error("command '%s' is not implemented yet", args.command)

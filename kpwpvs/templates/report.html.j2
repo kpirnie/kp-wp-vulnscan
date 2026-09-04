@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en" data-palette="#ff4560,#ff9e4f,#ffe066,#4dd8ff">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ site_name }} — vulnerability report {{ generated_at[:10] }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Sora:wght@300;400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070e20; --card:#0c1530; --card-alt:#0f1d3d; --navy:#0f1d3d;
+  --blue:#2b8eff; --cyan:#00d4ff; --text:#dde8f5; --dim:#6b8cae;
+  --border:#1a2a4a; --border-bright:#2a3f6a;
+  /* severity is a status scale, validated for cvd separation against the
+     card surface. it is never the only cue, every badge carries its label */
+  --sev-critical:#ff4560; --sev-high:#ff9e4f; --sev-medium:#ffe066; --sev-low:#4dd8ff; --sev-none:#6b8cae;
+  --ok:#00e5a0;
+  --r:10px; --r-lg:16px; --r-xl:24px;
+  --brand:"Orbitron",sans-serif; --body:"Sora",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background-color:var(--bg);
+  background-image:radial-gradient(rgba(43,142,255,.07) 1px,transparent 1px);
+  background-size:28px 28px;
+  color:var(--text);font-family:var(--body);font-size:15px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;padding:32px 20px 80px;
+}
+.wrap{max-width:1180px;margin:0 auto}
+a{color:var(--cyan);text-decoration:none}
+a:hover{color:var(--blue)}
+h1{font-family:var(--brand);font-size:1.7rem;font-weight:800;letter-spacing:.02em;color:#fff}
+h2{font-family:var(--brand);font-size:1.05rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);margin:40px 0 14px}
+h3{font-size:1rem;font-weight:600;margin:0 0 10px}
+.sub{color:var(--dim);font-size:.85rem;font-family:var(--mono)}
+header{border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:8px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px 22px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:8px}
+.tile{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.tile .n{font-family:var(--brand);font-size:1.85rem;font-weight:800;line-height:1.15;color:#fff}
+.tile .l{color:var(--dim);font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;margin-top:2px}
+.tile.alarm{border-color:var(--sev-critical)}
+.tile.alarm .n{color:var(--sev-critical)}
+.tile.clear .n{color:var(--ok)}
+
+/* core leads, and looks like it */
+.core{border:1px solid var(--border-bright);border-radius:var(--r-xl);padding:24px 26px;background:linear-gradient(180deg,var(--card-alt),var(--card))}
+.core.warn{border-color:var(--sev-critical)}
+.core .ver{font-family:var(--brand);font-size:2.5rem;font-weight:800;color:#fff;line-height:1}
+
+table{width:100%;border-collapse:collapse;font-size:.87rem}
+.scroll{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);background:var(--card)}
+th{text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);font-weight:600;padding:11px 13px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid rgba(26,42,74,.55);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-family:var(--mono);font-size:.82rem;white-space:nowrap}
+code,.mono{font-family:var(--mono);font-size:.82rem}
+.slug{font-family:var(--mono);font-size:.82rem;color:var(--cyan)}
+
+/* severity always carries its label, colour is the secondary cue */
+.sev{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.sev::before{content:"";width:9px;height:9px;border-radius:2px;flex:none;box-shadow:0 0 0 2px var(--card)}
+.sev-critical{color:var(--sev-critical)} .sev-critical::before{background:var(--sev-critical)}
+.sev-high{color:var(--sev-high)} .sev-high::before{background:var(--sev-high)}
+.sev-medium{color:var(--sev-medium)} .sev-medium::before{background:var(--sev-medium)}
+.sev-low{color:var(--sev-low)} .sev-low::before{background:var(--sev-low)}
+.sev-none{color:var(--sev-none)} .sev-none::before{background:var(--sev-none)}
+
+.pill{display:inline-block;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:999px;border:1px solid var(--border-bright);color:var(--dim);white-space:nowrap}
+.pill.insecure{color:var(--sev-critical);border-color:var(--sev-critical)}
+.pill.outdated{color:var(--sev-medium);border-color:var(--sev-medium)}
+.pill.latest{color:var(--ok);border-color:var(--ok)}
+.pill.premium{color:var(--blue);border-color:var(--blue)}
+.pill.abandoned{color:var(--sev-high);border-color:var(--sev-high)}
+.pill.ok{color:var(--ok);border-color:var(--ok)}
+
+.note{color:var(--dim);font-size:.83rem;margin-top:10px}
+.fix{color:var(--ok)} .nofix{color:var(--sev-critical)}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--border);color:var(--dim);font-size:.76rem}
+footer p{margin-bottom:8px}
+@media (max-width:640px){ .core .ver{font-size:1.9rem} body{padding:20px 12px 60px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>{{ site_name }}</h1>
+  <p class="sub">Vulnerability report &middot; generated {{ generated_at.replace("T", " ") }}{% if run_id %} &middot; run #{{ run_id }}{% endif %}</p>
+</header>
+
+{# core first, deliberately. a vulnerable core makes everything below it moot #}
+<h2>WordPress core</h2>
+{% if not core.tracked %}
+<div class="card"><p class="note">Core has not been crawled yet. Run <code>kpwpvs crawl --core-only</code>.</p></div>
+{% else %}
+<div class="core {% if core.current_issue_count %}warn{% endif %}">
+  <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:baseline;justify-content:space-between">
+    <div>
+      <div class="sub">Current release</div>
+      <div class="ver">{{ core.current_version }}</div>
+    </div>
+    <div style="text-align:right">
+      {% if core.current_issue_count %}
+      <div class="sev sev-critical">{{ core.current_issue_count }} known issue{{ "s" if core.current_issue_count != 1 }} in the current release</div>
+      {% else %}
+      <div class="sev" style="color:var(--ok)">No known issues in the current release</div>
+      {% endif %}
+      <div class="sub" style="margin-top:4px">{{ core.releases_insecure }} of {{ core.releases_tracked }} releases flagged insecure by wordpress.org</div>
+    </div>
+  </div>
+
+  {% if core.current_issues %}
+  <p class="note" style="margin-top:16px">These affect the newest release available, so no installation is unaffected by them:</p>
+  <div class="scroll" style="margin-top:8px">
+    <table>
+      <thead><tr><th>Severity</th><th>CVE</th><th>Issue</th><th class="num">CVSS</th></tr></thead>
+      <tbody>
+      {% for issue in core.current_issues %}
+        <tr>
+          <td><span class="sev sev-{{ issue.severity }}">{{ issue.severity }}</span></td>
+          <td class="mono">{{ issue.cve or "—" }}</td>
+          <td>{{ issue.title }}</td>
+          <td class="num">{{ "%.1f"|format(issue.cvss_score) if issue.cvss_score else "—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+<h3 style="margin-top:26px">Recent releases</h3>
+<div class="scroll">
+  <table>
+    <thead><tr><th>Version</th><th>wordpress.org status</th><th class="num">Known issues</th></tr></thead>
+    <tbody>
+    {% for release in core.releases %}
+      <tr>
+        <td class="mono">{{ release.version }}{% if release.is_current %} <span class="pill latest">current</span>{% endif %}</td>
+        <td><span class="pill {{ release.status }}">{{ release.status }}</span></td>
+        <td class="num">{{ release.issue_count }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<h2>Summary</h2>
+<div class="tiles">
+  <div class="tile {% if findings.plugin.critical %}alarm{% else %}clear{% endif %}">
+    <div class="n">{{ findings.plugin.critical }}</div><div class="l">Critical (plugins)</div>
+  </div>
+  <div class="tile"><div class="n">{{ findings.plugin.high }}</div><div class="l">High (plugins)</div></div>
+  <div class="tile"><div class="n">{{ findings.plugin.medium }}</div><div class="l">Medium (plugins)</div></div>
+  <div class="tile"><div class="n">{{ findings.plugin_total }}</div><div class="l">Open plugin findings</div></div>
+  <div class="tile"><div class="n">{{ catalog.total }}</div><div class="l">Catalogued</div></div>
+</div>
+<div class="card" style="margin-top:12px">
+  <table>
+    <thead><tr><th>Type</th><th>Status</th><th class="num">Count</th></tr></thead>
+    <tbody>
+    {% for type_name, statuses in catalog.by_type.items() %}
+      {% for status_name, count in statuses.items() %}
+      <tr><td>{{ type_name }}</td><td><span class="pill {{ status_name }}">{{ status_name }}</span></td><td class="num">{{ count }}</td></tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Currently published versions that are vulnerable</h2>
+{% if top_findings %}
+<p class="note" style="margin-bottom:10px">These are installable from wordpress.org right now in an affected version.</p>
+<div class="scroll">
+  <table>
+    <thead>
+      <tr><th>Severity</th><th>Slug</th><th>Version</th><th class="num">Installs</th><th>Issue</th><th>Fix</th></tr>
+    </thead>
+    <tbody>
+    {% for finding in top_findings %}
+      <tr>
+        <td><span class="sev sev-{{ finding.severity }}">{{ finding.severity }}</span></td>
+        <td>
+          <span class="slug">{{ finding.slug }}</span>
+          {% if finding.software_status != "active" %}<span class="pill {{ finding.software_status }}">{{ finding.software_status }}</span>{% endif %}
+        </td>
+        <td class="mono">{{ finding.version or "—" }}</td>
+        <td class="num">{{ finding.active_installs|installs }}</td>
+        <td>{{ finding.title }}{% if finding.cve %} <span class="mono sub">{{ finding.cve }}</span>{% endif %}</td>
+        <td>
+          {% if finding.fixed_in_version %}<span class="fix mono">{{ finding.fixed_in_version }}</span>
+          {% else %}<span class="nofix">none available</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card"><p class="note">No currently published version is in a known affected range.</p></div>
+{% endif %}
+
+<h2>Highest priority for source scanning</h2>
+<p class="note" style="margin-bottom:10px">Ranked on the whole issue history, not just what is open now, so a package with a long record of holes stays near the top even when today's release is clean.</p>
+<div class="scroll">
+  <table>
+    <thead>
+      <tr><th>Slug</th><th>Status</th><th class="num">Issues</th><th class="num">Open</th><th class="num">Critical</th><th class="num">Installs</th><th class="num">Score</th></tr>
+    </thead>
+    <tbody>
+    {% for entry in priorities %}
+      <tr>
+        <td><span class="slug">{{ entry.slug }}</span></td>
+        <td><span class="pill {{ entry.status }}">{{ entry.status }}</span></td>
+        <td class="num">{{ entry.issue_count }}</td>
+        <td class="num">{{ entry.open_issue_count }}</td>
+        <td class="num">{{ entry.critical_issue_count }}</td>
+        <td class="num">{{ entry.active_installs|installs }}</td>
+        <td class="num">{{ entry.priority_score }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Data sources</h2>
+<div class="scroll">
+  <table>
+    <thead><tr><th>Feed</th><th>State</th><th>Last success</th><th class="num">Records</th></tr></thead>
+    <tbody>
+    {% for feed in feeds %}
+      <tr>
+        <td>{{ feed.name }}</td>
+        <td>
+          {% if not feed.enabled %}<span class="pill">disabled</span>
+          {% elif feed.error %}<span class="pill insecure">error</span>
+          {% else %}<span class="pill ok">ok</span>{% endif %}
+        </td>
+        <td class="mono">{{ feed.last_success_at or "never" }}</td>
+        <td class="num">{{ feed.record_count }}</td>
+      </tr>
+      {% if feed.error %}
+      <tr><td colspan="4" class="note">{{ feed.error }}</td></tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  {% for entry in attribution %}
+  <p>{{ entry.notice }}</p>
+  {% endfor %}
+  <p>Generated by {{ generator }}. Vulnerability data is reproduced from its sources under their respective terms; always verify against the authoritative record before acting.</p>
+</footer>
+
+</div>
+</body>
+</html>
