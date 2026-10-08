@@ -93,13 +93,19 @@ async def dashboard(
             .all()
         )
 
-    # open plugin findings by severity
+    # open plugin and theme findings by severity, kept apart
     severity_rows = session.execute(
-        select(Finding.severity, func.count())
+        select(Software.software_type, Finding.severity, func.count())
+        .join(Software, Software.id == Finding.software_id)
         .where(Finding.status.in_(OPEN_STATUSES), Finding.software_version_id.is_(None))
-        .group_by(Finding.severity)
+        .group_by(Software.software_type, Finding.severity)
     ).all()
-    severities = {severity.value: count for severity, count in severity_rows}
+    severities = {
+        severity.value: count for software_type, severity, count in severity_rows if software_type is SoftwareType.PLUGIN
+    }
+    theme_severities = {
+        severity.value: count for software_type, severity, count in severity_rows if software_type is SoftwareType.THEME
+    }
 
     # what the catalog holds
     catalog_rows = session.execute(
@@ -133,6 +139,8 @@ async def dashboard(
             "core_releases": core_releases,
             "severities": severities,
             "open_total": sum(severities.values()),
+            "theme_severities": theme_severities,
+            "theme_open_total": sum(theme_severities.values()),
             "catalog_rows": catalog_rows,
             "catalog_total": catalog_total,
             "priorities": priorities,

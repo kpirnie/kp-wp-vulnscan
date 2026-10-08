@@ -26,6 +26,7 @@ from kpwpvs.models import (
     FindingStatus,
     Severity,
     Software,
+    SoftwareType,
     User,
     Vulnerability,
 )
@@ -63,7 +64,7 @@ async def list_findings(
     @param request: Request The incoming request
     @param severity: str Filter to one severity
     @param state: str Filter to one status, or open for the working set
-    @param kind: str Either plugin or core
+    @param kind: str Either plugin, theme, or core
     @param q: str Search the slug and the vulnerability title
     @param page: int Which page of results
     @param session: Session The request's database session
@@ -79,11 +80,19 @@ async def list_findings(
         .join(Vulnerability, Vulnerability.id == Finding.vulnerability_id)
     )
 
-    # core findings name a release, plugin findings do not
+    # core findings name a release, plugin and theme findings do not
     if kind == "core":
         statement = statement.where(Finding.software_version_id.is_not(None))
+    elif kind == "theme":
+        statement = statement.where(
+            Finding.software_version_id.is_(None),
+            Software.software_type == SoftwareType.THEME,
+        )
     else:
-        statement = statement.where(Finding.software_version_id.is_(None))
+        statement = statement.where(
+            Finding.software_version_id.is_(None),
+            Software.software_type == SoftwareType.PLUGIN,
+        )
 
     # the working set is anything nobody has closed out
     if state == "open":

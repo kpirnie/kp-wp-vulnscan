@@ -60,6 +60,21 @@
   </a>
 </div>
 
+<h2 class="font-brand text-sm uppercase tracking-[.1em] text-cyan mt-10 mb-3">Open theme findings</h2>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+  {% for level in ['critical','high','medium','low'] %}
+  <a href="/findings?kind=theme&severity={{ level }}" class="kp-card p-4 hover:border-brand transition-colors
+     {% if level == 'critical' and theme_severities.get('critical') %}border-sev-critical{% endif %}">
+    <div class="font-brand text-3xl font-extrabold {% if level == 'critical' and theme_severities.get('critical') %}text-sev-critical{% else %}text-white{% endif %}">{{ theme_severities.get(level, 0)|number }}</div>
+    <div class="text-[11px] uppercase tracking-[.09em] text-dim mt-0.5">{{ level }}</div>
+  </a>
+  {% endfor %}
+  <a href="/findings?kind=theme" class="kp-card p-4 hover:border-brand transition-colors">
+    <div class="font-brand text-3xl font-extrabold text-white">{{ theme_open_total|number }}</div>
+    <div class="text-[11px] uppercase tracking-[.09em] text-dim mt-0.5">Open</div>
+  </a>
+</div>
+
 <div class="grid lg:grid-cols-2 gap-6 mt-8">
   <div>
     <h2 class="font-brand text-sm uppercase tracking-[.1em] text-cyan mb-3">Highest priority</h2>
