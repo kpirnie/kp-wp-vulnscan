@@ -277,7 +277,7 @@ def parse_plugin(raw: dict[str, Any]) -> PluginRecord | None:
     return PluginRecord(
         slug=slug.strip(),
         name=_clean_text(raw.get("name")),
-        version=(raw.get("version") or "").strip() or None,
+        version=(str(raw.get("version") or "")).strip() or None,
         author=_clean_text(raw.get("author")) or None,
         author_profile=(raw.get("author_profile") or "").strip() or None,
         homepage=(raw.get("homepage") or "").strip() or None,
