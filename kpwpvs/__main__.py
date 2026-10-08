@@ -68,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     crawl.add_argument("--full", action="store_true", help="force a full seed crawl instead of incremental")
     crawl.add_argument("--max-pages", type=int, help="stop after this many pages, for a quick look")
     crawl.add_argument("--core-only", action="store_true", help="only refresh the core release history")
+    crawl.add_argument("--skip-core", action="store_true", help="skip the core release history")
     crawl.add_argument("--themes-only", action="store_true", help="only crawl the theme repository")
     crawl.add_argument("--skip-themes", action="store_true", help="skip the theme repository")
 
