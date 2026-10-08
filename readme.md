@@ -20,10 +20,10 @@
 [![Kevin Pirnie](https://img.shields.io/badge/-KevinPirnie.com-000d2d?style=for-the-badge&labelColor=000&logoColor=white&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz4KICA8ZWxsaXBzZSBjeD0iMTIiIGN5PSIxMiIgcng9IjQuNSIgcnk9IjEwIi8+CiAgPGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz4KICA8bGluZSB4MT0iNC41IiB5MT0iNi41IiB4Mj0iMTkuNSIgeTI9IjYuNSIvPgogIDxsaW5lIHgxPSI0LjUiIHkxPSIxNy41IiB4Mj0iMTkuNSIgeTI9IjE3LjUiLz4KPC9zdmc+Cg==)](https://kevinpirnie.com/)
 
 An open source WordPress vulnerability scanner and reporter, for core and for
-the plugin repository.
+the plugin and theme repositories.
 
 It tracks every release of WordPress core and the whole wordpress.org plugin
-catalog, matches both against known vulnerability feeds, ranks everything by
+and theme catalogs, matches them against known vulnerability feeds, ranks everything by
 the issues it has accumulated, and reports on it. One container, one volume,
 scheduled from the host.
 
@@ -188,7 +188,7 @@ nobody runs, which is the fastest way to get an alert muted.
 
 ```
 kpwpvs scan                      # the whole pipeline, this is what cron calls
-kpwpvs crawl [--full|--core-only|--skip-core]
+kpwpvs crawl [--full|--core-only|--skip-core|--themes-only|--skip-themes]
 kpwpvs feeds [--list|--source X|--set-key X]
 kpwpvs match                     # match vulnerabilities against the catalog
 kpwpvs report [--stdout]         # report without running the pipeline
@@ -202,7 +202,7 @@ out of shell history and the process table.
 
 ## How it works
 
-1. **Crawl** — walks the wordpress.org catalog, checkpointing as it goes so an
+1. **Crawl** — walks the wordpress.org plugin and theme catalogs, checkpointing as it goes so an
    interrupted seed resumes rather than restarting. Later runs walk the
    updated ordering only until they reach ground already covered.
 2. **Feeds** — pulls each enabled source in priority order. One being down or
@@ -211,7 +211,7 @@ out of shell history and the process table.
 4. **Report** — one payload, rendered as JSON, HTML and a notification, so
    they can never disagree about what a run found.
 
-Core and plugins are matched differently on purpose. For a plugin only the
+Core and plugins are matched differently on purpose. For a plugin or theme only the
 currently published version matters, because that is what anyone installing it
 gets. Everybody runs some older core, so core is matched per release and a
 finding names the version it is about.
@@ -263,9 +263,13 @@ Phase one is complete:
 - [x] container image, compose file and CI
 
 Phase two: local source scanning of plugin archives, optionally AI assisted
-with a pluggable provider. Phase three: themes, which the schema already
-accommodates — theme vulnerability records are being stored today, they simply
-have no catalog to join to yet.
+with a pluggable provider.
+
+Phase three is complete:
+
+- [x] wordpress.org theme catalog crawler
+- [x] theme matching and priority scoring
+- [x] theme findings reported separately from plugins
 
 ## License
 
