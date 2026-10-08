@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+    #!/usr/bin/env python3
 """
 Reporter Service Module
 
@@ -303,6 +303,55 @@ class Reporter:
             for finding, software, vulnerability in rows
         ]
 
+    def _new_findings(self, run_id: int | None, minimum: Severity) -> list[dict[str, Any]]:
+        """
+        The findings this run opened, at or above a severity
+
+        Plugin and theme findings, plus whatever is newly wrong with the
+        core release currently shipping. Older core releases are left out,
+        nobody is running them.
+
+        @param run_id: int|None The run to look at
+        @param minimum: Severity The lowest severity to include
+        @return list[dict]: The new findings, worst first
+        """
+
+        # a report built outside of a run has nothing new by definition
+        if run_id is None:
+            return []
+
+        rows = self._session.execute(
+            select(Finding, Software, Vulnerability)
+            .join(Software, Software.id == Finding.software_id)
+            .join(Vulnerability, Vulnerability.id == Finding.vulnerability_id)
+            .outerjoin(SoftwareVersion, SoftwareVersion.id == Finding.software_version_id)
+            .where(
+                Finding.first_run_id == run_id,
+                Finding.status.in_(OPEN_STATUSES),
+                (Finding.software_version_id.is_(None)) | (SoftwareVersion.is_current.is_(True)),
+            )
+            .order_by(
+                func.field(Finding.severity, *[s.value for s in SEVERITY_ORDER]),
+                Software.active_installs.desc(),
+            )
+        ).all()
+
+        return [
+            {
+                "slug": software.slug,
+                "name": software.name,
+                "type": software.software_type.value,
+                "version": finding.matched_version,
+                "severity": finding.severity.value,
+                "cve": vulnerability.cve,
+                "title": vulnerability.title,
+                "cvss_score": vulnerability.cvss_score,
+                "fixed_in_version": finding.fixed_in_version,
+            }
+            for finding, software, vulnerability in rows
+            if SEVERITY_RANK[finding.severity] >= SEVERITY_RANK[minimum]
+        ]
+
     def _priorities(self) -> list[dict[str, Any]]:
         """
         The highest ranked entries in the catalog
@@ -560,8 +609,8 @@ class Reporter:
         """
         Post the run summary to the configured webhook
 
-        Fires only when one is configured and something met the minimum
-        severity, so a quiet week stays quiet.
+        Fires only when one is configured and this run opened something at
+        or above the minimum severity, so a quiet run stays quiet.
 
         @param payload: dict The assembled report payload
         @param run_id: int|None The run this report covers
@@ -577,24 +626,9 @@ class Reporter:
             logger.warning("the webhook is enabled but no url is set")
             return None
 
-        # work out whether anything crossed the threshold. deliberately
-        # counts plugin findings plus what is wrong with the core release
-        # currently shipping, rather than every core finding. the latter
-        # includes every release back to 2004 and would report tens of
-        # thousands of issues nobody is running
+        # only what this run opened, never the standing list
         minimum = Severity(self._settings.get("webhook.min_severity"))
-        counts = payload["findings"]
-
-        notable = sum(
-            count
-            for severity, count in counts["plugin"].items()
-            if SEVERITY_RANK[Severity(severity)] >= SEVERITY_RANK[minimum]
-        )
-        notable += sum(
-            1
-            for issue in payload["core"].get("current_issues", [])
-            if SEVERITY_RANK[Severity(issue["severity"])] >= SEVERITY_RANK[minimum]
-        )
+        new_findings = self._new_findings(run_id, minimum)
 
         delivery = WebhookDelivery(
             run_id=run_id,
@@ -602,15 +636,15 @@ class Reporter:
             format=self._settings.get("webhook.format"),
         )
 
-        # a quiet week is not worth a notification
-        if not notable:
+        # a quiet run is not worth a notification
+        if not new_findings:
             delivery.status = DeliveryStatus.SKIPPED
             self._session.add(delivery)
             self._session.commit()
-            logger.info("nothing met the %s threshold, no notification sent", minimum.value)
+            logger.info("nothing new met the %s threshold, no notification sent", minimum.value)
             return delivery
 
-        body = _build_webhook_body(self._settings.get("webhook.format"), payload, notable, minimum)
+        body = _build_webhook_body(self._settings.get("webhook.format"), payload, new_findings, minimum)
 
         # send it, recording whatever happens
         try:
@@ -682,11 +716,10 @@ def _format_installs(value: object) -> str:
 
     return str(value)
 
-
 def _build_webhook_body(
     style: str,
     payload: dict[str, Any],
-    notable: int,
+    new_findings: list[dict[str, Any]],
     minimum: Severity,
 ) -> dict[str, Any]:
     """
@@ -694,39 +727,28 @@ def _build_webhook_body(
 
     @param style: str Which service shape to build
     @param payload: dict The assembled report payload
-    @param notable: int How many findings met the threshold
+    @param new_findings: list[dict] What this run opened at or above the threshold
     @param minimum: Severity The threshold that was applied
     @return dict: The payload to post
     """
 
-    core = payload["core"]
-    findings = payload["findings"]
+    headline = f"{payload['site_name']}: {len(new_findings)} new finding(s) at {minimum.value} or above"
 
-    # core leads the message for the same reason it leads the report
-    headline = f"{payload['site_name']}: {notable} finding(s) at {minimum.value} or above"
+    # one line per finding, already ordered worst first
     lines = []
-
-    if core.get("tracked"):
-        core_note = f"WordPress core {core.get('current_version')}"
-        if core.get("current_issue_count"):
-            core_note += f" has {core['current_issue_count']} known issue(s) affecting the current release"
-        else:
-            core_note += " has no known issues in the current release"
-        lines.append(core_note)
-
-    # only the severities at or above the threshold, listing mediums on a
-    # high threshold just buries the thing somebody needs to see
-    breakdown = ", ".join(
-        f"{count} {name}"
-        for name, count in findings["plugin"].items()
-        if count and SEVERITY_RANK[Severity(name)] >= SEVERITY_RANK[minimum]
-    )
-    lines.append(f"Plugins: {breakdown}" if breakdown else "Plugins: nothing at this threshold")
+    for finding in new_findings:
+        line = (
+            f"[{finding['severity']}] {finding['type']} {finding['name']} {finding['version']}: "
+            f"{finding['cve'] or 'no cve'} {finding['title']}"
+        )
+        if finding["fixed_in_version"]:
+            line += f" (fixed in {finding['fixed_in_version']})"
+        lines.append(line)
 
     text_body = headline + "\n" + "\n".join(lines)
 
     # slack and discord both take a plain text field, everything else gets
-    # the structured summary so it can be parsed rather than read
+    # the structured list so it can be parsed rather than read
     if style == "slack":
         return {"text": text_body}
     if style == "discord":
@@ -736,7 +758,6 @@ def _build_webhook_body(
         "generated_at": payload["generated_at"],
         "run_id": payload["run_id"],
         "summary": headline,
-        "core": core,
-        "findings": findings,
-        "top_findings": payload["top_findings"][:10],
+        "new_findings": new_findings,
     }
+    
