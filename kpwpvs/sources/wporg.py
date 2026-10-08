@@ -2,8 +2,9 @@
 """
 WordPress.org Source Module
 
-Client for the wordpress.org plugins api. Handles paging, retries, and
-turning the api's slightly awkward payload into something clean.
+Client for the wordpress.org plugins and themes apis. Handles paging,
+retries, and turning the api's slightly awkward payload into something
+clean.
 
 @package KP WP VulnScan
 @author Kevin Pirnie <me@kpirnie.com>
@@ -28,6 +29,9 @@ logger = logging.getLogger(__name__)
 # the api endpoint, version 1.2 is the current json one
 API_URL = "https://api.wordpress.org/plugins/info/1.2/"
 
+# the themes api, a different endpoint with its own field names
+THEMES_API_URL = "https://api.wordpress.org/themes/info/1.2/"
+
 # the api caps this no matter what we ask for
 MAX_PER_PAGE = 250
 
@@ -46,6 +50,19 @@ UNWANTED_FIELDS = (
     "reviews",
 )
 
+# the themes api works the other way round, most of what we want is off
+# unless asked for, and the description is on unless turned off
+THEME_FIELDS = {
+    "active_installs": "1",
+    "downloaded": "1",
+    "downloadlink": "1",
+    "last_updated": "1",
+    "creation_time": "1",
+    "tags": "1",
+    "description": "0",
+    "screenshot_url": "0",
+}
+
 # the author comes back as an html anchor, we want the text inside it
 TAG_RE = re.compile(r"<[^>]+>")
 
@@ -57,6 +74,8 @@ MAX_TAG_LENGTH = 191
 # "2026-09-04 11:06am GMT", the only timestamp format the api uses
 LAST_UPDATED_FORMAT = "%Y-%m-%d %I:%M%p %Z"
 
+# "2026-09-04 11:06:42", how the themes api spells its timestamps, always utc
+THEME_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 @dataclass
 class PluginRecord:
@@ -162,6 +181,27 @@ def _parse_added(value: Any) -> date | None:
         return None
 
 
+def _parse_theme_time(value: Any) -> datetime | None:
+    """
+    Parse one of the themes api's timestamps
+
+    Both last_updated_time and creation_time come through as
+    "2026-09-04 11:06:42", in UTC.
+
+    @param value: Any The raw api value
+    @return datetime|None: The parsed timestamp, or None when unparseable
+    """
+
+    # nothing to do without a string
+    if not isinstance(value, str) or not value.strip():
+        return None
+
+    try:
+        return datetime.strptime(value.strip(), THEME_TIME_FORMAT)
+    except ValueError:
+        logger.debug("could not parse theme timestamp %r", value)
+        return None
+
 def _as_int(value: Any) -> int:
     """
     Coerce an api value to an integer
@@ -255,10 +295,61 @@ def parse_plugin(raw: dict[str, Any]) -> PluginRecord | None:
         tags=tags,
     )
 
+def parse_theme(raw: dict[str, Any]) -> PluginRecord | None:
+    """
+    Turn one raw api theme into a clean record
+
+    Same shape as a plugin so the crawler treats both alike. The themes
+    api has no support thread counts or tested up to, those stay empty.
+
+    @param raw: dict The theme object straight off the api
+    @return PluginRecord|None: The cleaned record, or None without a slug
+    """
+
+    # no slug means no identity, and nothing we can do with it
+    slug = raw.get("slug")
+    if not isinstance(slug, str) or not slug.strip():
+        return None
+
+    # the author is an object on 1.2, a bare nicename on older shapes
+    author = raw.get("author")
+    if isinstance(author, dict):
+        author_name = _clean_text(author.get("display_name")) or None
+        author_profile = (author.get("profile") or "").strip() or None
+    else:
+        author_name = _clean_text(author) or None
+        author_profile = None
+
+    # tags come back as a slug keyed dict, we only want the slugs
+    raw_tags = raw.get("tags")
+    tags = _parse_tags(raw_tags) if isinstance(raw_tags, dict) else []
+
+    # the creation time is a full timestamp, we only keep the date
+    created = _parse_theme_time(raw.get("creation_time"))
+
+    # build it out, cleaning as we go
+    return PluginRecord(
+        slug=slug.strip(),
+        name=_clean_text(raw.get("name")),
+        version=(raw.get("version") or "").strip() or None,
+        author=author_name,
+        author_profile=author_profile,
+        homepage=(raw.get("homepage") or "").strip() or None,
+        download_link=(raw.get("download_link") or "").strip() or None,
+        requires_wp=(str(raw.get("requires") or "")).strip() or None,
+        requires_php=(str(raw.get("requires_php") or "")).strip() or None,
+        rating=_as_int(raw.get("rating")),
+        num_ratings=_as_int(raw.get("num_ratings")),
+        active_installs=_as_int(raw.get("active_installs")),
+        downloaded=_as_int(raw.get("downloaded")),
+        added_on=created.date() if created else None,
+        last_updated=_parse_theme_time(raw.get("last_updated_time")),
+        tags=tags,
+    )
 
 class WporgClient:
     """
-    Talks to the wordpress.org plugins api
+    Talks to the wordpress.org plugins or themes api
 
     Retries with backoff, rate limits itself, and never asks for the
     fields we are only going to throw away.
@@ -271,6 +362,7 @@ class WporgClient:
         max_retries: int = 3,
         retry_backoff: float = 2.0,
         rate_limit_delay: float = 0.25,
+        themes: bool = False,
     ) -> None:
         """
         Build a client
@@ -280,11 +372,27 @@ class WporgClient:
         @param max_retries: int Attempts before giving up on a page
         @param retry_backoff: float Multiplier between retry attempts
         @param rate_limit_delay: float Seconds to pause between requests
+        @param themes: bool Walk the themes catalog rather than plugins
         """
 
         self._max_retries = max_retries
         self._retry_backoff = retry_backoff
         self._rate_limit_delay = rate_limit_delay
+
+        # which catalog this client walks, the two apis differ in endpoint,
+        # action, field names, and where the results land
+        if themes:
+            self._url = THEMES_API_URL
+            self._query_action = "query_themes"
+            self._results_key = "themes"
+            self._fields = THEME_FIELDS
+            self._parse = parse_theme
+        else:
+            self._url = API_URL
+            self._query_action = "query_plugins"
+            self._results_key = "plugins"
+            self._fields = {unwanted: "0" for unwanted in UNWANTED_FIELDS}
+            self._parse = parse_plugin
         self._client = httpx.AsyncClient(
             timeout=timeout,
             headers={"User-Agent": user_agent, "Accept": "application/json"},
@@ -332,9 +440,9 @@ class WporgClient:
         # the plain request keys
         params = {f"request[{key}]": str(value) for key, value in request.items()}
 
-        # then turn off everything we do not want back
-        for unwanted in UNWANTED_FIELDS:
-            params[f"request[fields][{unwanted}]"] = "0"
+        # then the field toggles for whichever api this is
+        for name, value in self._fields.items():
+            params[f"request[fields][{name}]"] = value
 
         return params
 
@@ -360,7 +468,7 @@ class WporgClient:
                 await asyncio.sleep(self._rate_limit_delay)
 
             try:
-                response = await self._client.get(API_URL, params=params)
+                response = await self._client.get(self._url, params=params)
 
                 # a 404 here is a real answer, not a failure to retry
                 if response.status_code == 404:
@@ -391,7 +499,7 @@ class WporgClient:
         """
 
         # one page is enough to read the totals off
-        payload = await self._get("query_plugins", per_page=min(per_page, MAX_PER_PAGE), page=1, browse=browse)
+        payload = await self._get(self._query_action, per_page=min(per_page, MAX_PER_PAGE), page=1, browse=browse)
         info = payload.get("info", {})
 
         return (_as_int(info.get("pages")), _as_int(info.get("results")))
@@ -413,7 +521,7 @@ class WporgClient:
 
         # ask for it
         payload = await self._get(
-            "query_plugins",
+            self._query_action,
             per_page=min(per_page, MAX_PER_PAGE),
             page=page,
             browse=browse,
@@ -421,8 +529,8 @@ class WporgClient:
 
         # clean each one, dropping anything without a slug
         records = []
-        for raw in payload.get("plugins", []):
-            record = parse_plugin(raw)
+        for raw in payload.get(self._results_key, []):
+            record = self._parse(raw)
             if record is not None:
                 records.append(record)
 
@@ -476,7 +584,7 @@ class WporgClient:
 
         # find out how far we have to go
         total_pages, total_results = await self.page_count(per_page=per_page, browse=browse)
-        logger.info("wordpress.org catalog has %s plugins across %s pages", total_results, total_pages)
+        logger.info("wordpress.org catalog has %s %s across %s pages", total_results, self._results_key, total_pages)
 
         # walk it in batches so we can yield and checkpoint between them
         page = start_page
