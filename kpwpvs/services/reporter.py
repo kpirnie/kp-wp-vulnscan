@@ -223,44 +223,40 @@ class Reporter:
             total += count
 
         return {"total": total, "by_type": by_type}
-
     def _findings_section(self) -> dict[str, Any]:
         """
         The headline finding counts
 
-        Split by whether they are about core or about a plugin, because
-        the two mean quite different things.
+        Split by whether they are about core, a plugin, or a theme,
+        because the three mean quite different things.
 
         @return dict: Finding counts by severity and kind
         """
 
         rows = self._session.execute(
-            select(
-                Finding.severity,
-                Finding.software_version_id.is_(None).label("is_plugin"),
-                func.count(),
-            )
+            select(Finding.severity, Software.software_type, func.count())
+            .join(Software, Software.id == Finding.software_id)
             .where(Finding.status.in_(OPEN_STATUSES))
-            .group_by(Finding.severity, Finding.software_version_id.is_(None))
+            .group_by(Finding.severity, Software.software_type)
         ).all()
 
-        plugin: dict[str, int] = {s.value: 0 for s in SEVERITY_ORDER}
-        core: dict[str, int] = {s.value: 0 for s in SEVERITY_ORDER}
+        buckets: dict[str, dict[str, int]] = {t.value: {s.value: 0 for s in SEVERITY_ORDER} for t in SoftwareType}
 
-        for severity, is_plugin, count in rows:
-            bucket = plugin if is_plugin else core
-            bucket[severity.value] = count
+        for severity, software_type, count in rows:
+            buckets[software_type.value][severity.value] = count
 
         return {
-            "plugin": plugin,
-            "plugin_total": sum(plugin.values()),
-            "core": core,
-            "core_total": sum(core.values()),
+            "plugin": buckets[SoftwareType.PLUGIN.value],
+            "plugin_total": sum(buckets[SoftwareType.PLUGIN.value].values()),
+            "theme": buckets[SoftwareType.THEME.value],
+            "theme_total": sum(buckets[SoftwareType.THEME.value].values()),
+            "core": buckets[SoftwareType.CORE.value],
+            "core_total": sum(buckets[SoftwareType.CORE.value].values()),
         }
 
     def _top_findings(self) -> list[dict[str, Any]]:
         """
-        The open plugin findings most worth looking at
+        The open plugin and theme findings most worth looking at
 
         Ordered by severity then by how many installs are exposed, which
         is the order somebody would triage them in.

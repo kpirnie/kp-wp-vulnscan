@@ -157,6 +157,12 @@ footer p{margin-bottom:8px}
   <div class="tile"><div class="n">{{ findings.plugin.high }}</div><div class="l">High (plugins)</div></div>
   <div class="tile"><div class="n">{{ findings.plugin.medium }}</div><div class="l">Medium (plugins)</div></div>
   <div class="tile"><div class="n">{{ findings.plugin_total }}</div><div class="l">Open plugin findings</div></div>
+  <div class="tile {% if findings.theme.critical %}alarm{% else %}clear{% endif %}">
+    <div class="n">{{ findings.theme.critical }}</div><div class="l">Critical (themes)</div>
+  </div>
+  <div class="tile"><div class="n">{{ findings.theme.high }}</div><div class="l">High (themes)</div></div>
+  <div class="tile"><div class="n">{{ findings.theme.medium }}</div><div class="l">Medium (themes)</div></div>
+  <div class="tile"><div class="n">{{ findings.theme_total }}</div><div class="l">Open theme findings</div></div>
   <div class="tile"><div class="n">{{ catalog.total }}</div><div class="l">Catalogued</div></div>
 </div>
 <div class="card" style="margin-top:12px">
@@ -186,6 +192,7 @@ footer p{margin-bottom:8px}
         <td><span class="sev sev-{{ finding.severity }}">{{ finding.severity }}</span></td>
         <td>
           <span class="slug">{{ finding.slug }}</span>
+          {% if finding.type == "theme" %}<span class="sub">theme</span>{% endif %}
           {% if finding.software_status != "active" %}<span class="pill {{ finding.software_status }}">{{ finding.software_status }}</span>{% endif %}
         </td>
         <td class="mono">{{ finding.version or "—" }}</td>

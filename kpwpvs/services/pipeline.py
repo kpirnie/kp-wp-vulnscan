@@ -206,6 +206,7 @@ class Pipeline:
                 {
                     "core_current_issues": payload["core"].get("current_issue_count", 0),
                     "plugin_findings": payload["findings"]["plugin_total"],
+                    "theme_findings": payload["findings"]["theme_total"],
                     "core_findings": payload["findings"]["core_total"],
                 },
             )
