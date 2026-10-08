@@ -13,7 +13,7 @@ fi
 
 echo "[cron] scheduling a scan at: ${KPWPVS_SCHEDULE}"
 printenv | grep -E '^KPWPVS_' | sed 's/^/export /' > /run/kpwpvs-env
-echo "${KPWPVS_SCHEDULE} . /run/kpwpvs-env && /opt/venv/bin/kpwpvs scan >> /proc/1/fd/1 2>&1" \
+echo "${KPWPVS_SCHEDULE} root . /run/kpwpvs-env && /opt/venv/bin/kpwpvs scan >> /proc/1/fd/1 2>&1" \
     > /etc/cron.d/kpwpvs
 echo "" >> /etc/cron.d/kpwpvs
 chmod 0644 /etc/cron.d/kpwpvs
