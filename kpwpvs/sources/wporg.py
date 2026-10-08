@@ -77,6 +77,7 @@ LAST_UPDATED_FORMAT = "%Y-%m-%d %I:%M%p %Z"
 # "2026-09-04 11:06:42", how the themes api spells its timestamps, always utc
 THEME_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+
 @dataclass
 class PluginRecord:
     """
@@ -202,6 +203,7 @@ def _parse_theme_time(value: Any) -> datetime | None:
         logger.debug("could not parse theme timestamp %r", value)
         return None
 
+
 def _as_int(value: Any) -> int:
     """
     Coerce an api value to an integer
@@ -295,6 +297,7 @@ def parse_plugin(raw: dict[str, Any]) -> PluginRecord | None:
         tags=tags,
     )
 
+
 def parse_theme(raw: dict[str, Any]) -> PluginRecord | None:
     """
     Turn one raw api theme into a clean record
@@ -346,6 +349,7 @@ def parse_theme(raw: dict[str, Any]) -> PluginRecord | None:
         last_updated=_parse_theme_time(raw.get("last_updated_time")),
         tags=tags,
     )
+
 
 class WporgClient:
     """

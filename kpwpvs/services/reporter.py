@@ -1,4 +1,4 @@
-    #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Reporter Service Module
 
@@ -223,6 +223,7 @@ class Reporter:
             total += count
 
         return {"total": total, "by_type": by_type}
+
     def _findings_section(self) -> dict[str, Any]:
         """
         The headline finding counts
@@ -711,6 +712,7 @@ def _format_installs(value: object) -> str:
         return f"{value // 1_000}k+"
 
     return str(value)
+
 
 def _build_webhook_body(
     style: str,

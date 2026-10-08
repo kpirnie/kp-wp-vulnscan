@@ -49,6 +49,7 @@ INCREMENTAL = "incremental"
 THEME_SEED = "theme_seed"
 THEME_INCREMENTAL = "theme_incremental"
 
+
 class CrawlStats:
     """
     Running counts for one crawl
