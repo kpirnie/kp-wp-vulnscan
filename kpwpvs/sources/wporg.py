@@ -334,7 +334,7 @@ def parse_theme(raw: dict[str, Any]) -> PluginRecord | None:
     return PluginRecord(
         slug=slug.strip(),
         name=_clean_text(raw.get("name")),
-        version=(raw.get("version") or "").strip() or None,
+        version=(str(raw.get("version") or "")).strip() or None,
         author=author_name,
         author_profile=author_profile,
         homepage=(raw.get("homepage") or "").strip() or None,
