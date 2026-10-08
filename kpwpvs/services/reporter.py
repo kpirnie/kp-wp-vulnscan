@@ -756,4 +756,3 @@ def _build_webhook_body(
         "summary": headline,
         "new_findings": new_findings,
     }
-    

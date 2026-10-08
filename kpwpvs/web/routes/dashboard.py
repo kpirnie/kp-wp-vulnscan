@@ -101,10 +101,14 @@ async def dashboard(
         .group_by(Software.software_type, Finding.severity)
     ).all()
     severities = {
-        severity.value: count for software_type, severity, count in severity_rows if software_type is SoftwareType.PLUGIN
+        severity.value: count
+        for software_type, severity, count in severity_rows
+        if software_type is SoftwareType.PLUGIN
     }
     theme_severities = {
-        severity.value: count for software_type, severity, count in severity_rows if software_type is SoftwareType.THEME
+        severity.value: count
+        for software_type, severity, count in severity_rows
+        if software_type is SoftwareType.THEME
     }
 
     # what the catalog holds
