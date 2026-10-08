@@ -63,12 +63,13 @@ def build_parser() -> argparse.ArgumentParser:
     scan = sub.add_parser("scan", help="run the full pipeline, crawl then feeds then match then report")
     scan.add_argument("--full", action="store_true", help="force a full seed crawl rather than incremental")
 
-    # pull the wordpress.org plugin catalog
-    crawl = sub.add_parser("crawl", help="crawl the wordpress.org plugin repository")
+    # pull the wordpress.org plugin and theme catalogs
+    crawl = sub.add_parser("crawl", help="crawl the wordpress.org plugin and theme repositories")
     crawl.add_argument("--full", action="store_true", help="force a full seed crawl instead of incremental")
     crawl.add_argument("--max-pages", type=int, help="stop after this many pages, for a quick look")
     crawl.add_argument("--core-only", action="store_true", help="only refresh the core release history")
-    crawl.add_argument("--skip-core", action="store_true", help="skip the core release history")
+    crawl.add_argument("--themes-only", action="store_true", help="only crawl the theme repository")
+    crawl.add_argument("--skip-themes", action="store_true", help="skip the theme repository")
 
     # refresh the vulnerability feeds
     feeds = sub.add_parser("feeds", help="refresh the vulnerability feeds")
@@ -172,7 +173,7 @@ def handle_crawl(config: BootstrapConfig, args: argparse.Namespace) -> int:
     """
     Handle the catalog crawl subcommand
 
-    Walks the wordpress.org plugin repository into the database, seeding
+    Walks the wordpress.org plugin and theme repositories into the database, seeding
     it on the first run and only catching up on every run after.
 
     @param config: BootstrapConfig The bootstrap configuration
@@ -202,20 +203,31 @@ def handle_crawl(config: BootstrapConfig, args: argparse.Namespace) -> int:
             if args.core_only:
                 return 0
 
-            stats = asyncio.run(crawler.crawl(full=args.full, max_pages=args.max_pages))
+            stats = None
+            if not args.themes_only:
+                stats = asyncio.run(crawler.crawl(full=args.full, max_pages=args.max_pages))
+
+            # then the themes, the same walk against the other catalog
+            theme_stats = None
+            if not args.skip_themes:
+                theme_stats = asyncio.run(crawler.crawl(full=args.full, max_pages=args.max_pages, themes=True))
     except Exception as exc:
         logger.error("crawl failed: %s", exc, exc_info=logger.isEnabledFor(logging.DEBUG))
         return 1
 
     # say what happened, in something a human can read
-    logger.info(
-        "%s plugins seen, %s new, %s updated, %s unchanged, %s new versions",
-        stats.seen,
-        stats.added,
-        stats.updated,
-        stats.unchanged,
-        stats.versions_added,
-    )
+    for label, result in (("plugins", stats), ("themes", theme_stats)):
+        if result is None:
+            continue
+        logger.info(
+            "%s %s seen, %s new, %s updated, %s unchanged, %s new versions",
+            result.seen,
+            label,
+            result.added,
+            result.updated,
+            result.unchanged,
+            result.versions_added,
+        )
 
     return 0
 

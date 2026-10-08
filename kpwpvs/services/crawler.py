@@ -2,7 +2,7 @@
 """
 Crawler Service Module
 
-Walks the wordpress.org plugin catalog into our database. The first run
+Walks the wordpress.org plugin and theme catalogs into our database. The first run
 seeds the whole thing, checkpointing as it goes so an interruption does
 not cost the whole crawl. After that it only walks far enough back to
 catch what has changed.
@@ -45,6 +45,9 @@ logger = logging.getLogger(__name__)
 SEED = "seed"
 INCREMENTAL = "incremental"
 
+# the same two walks against the themes catalog, each with its own checkpoint
+THEME_SEED = "theme_seed"
+THEME_INCREMENTAL = "theme_incremental"
 
 class CrawlStats:
     """
@@ -128,7 +131,13 @@ class Crawler:
 
         return checkpoint
 
-    def _upsert(self, record: PluginRecord, stats: CrawlStats, now: datetime) -> None:
+    def _upsert(
+        self,
+        record: PluginRecord,
+        stats: CrawlStats,
+        now: datetime,
+        software_type: SoftwareType = SoftwareType.PLUGIN,
+    ) -> None:
         """
         Insert or update one plugin from a catalog record
 
@@ -138,6 +147,7 @@ class Crawler:
         @param record: PluginRecord The cleaned record from the api
         @param stats: CrawlStats The running counters to update
         @param now: datetime The timestamp to stamp this crawl with
+        @param software_type: SoftwareType Whether this is a plugin or a theme
         @return None
         """
 
@@ -145,7 +155,7 @@ class Crawler:
         plugin = self._session.execute(
             select(Software).where(
                 Software.slug == record.slug,
-                Software.software_type == SoftwareType.PLUGIN,
+                Software.software_type == software_type,
             )
         ).scalar_one_or_none()
 
@@ -153,7 +163,7 @@ class Crawler:
         if plugin is None:
             plugin = Software(
                 slug=record.slug,
-                software_type=SoftwareType.PLUGIN,
+                software_type=software_type,
                 first_seen=now,
                 status=SoftwareStatus.ACTIVE,
             )
@@ -194,8 +204,12 @@ class Crawler:
         plugin.last_seen = now
         plugin.last_crawled = now
 
-        # something that is back in the catalog is no longer missing
-        if plugin.status in (SoftwareStatus.MISSING, SoftwareStatus.CLOSED):
+        # something that is back in the catalog is no longer missing, and a
+        # theme the feeds put in before themes were crawled is not premium
+        reactivate = (SoftwareStatus.MISSING, SoftwareStatus.CLOSED)
+        if software_type is SoftwareType.THEME:
+            reactivate += (SoftwareStatus.PREMIUM,)
+        if plugin.status in reactivate:
             plugin.status = SoftwareStatus.ACTIVE
             plugin.closed_reason = None
             plugin.closed_at = None
@@ -410,10 +424,11 @@ class Crawler:
 
         return entry
 
-    def _build_client(self) -> WporgClient:
+    def _build_client(self, themes: bool = False) -> WporgClient:
         """
         Build an api client from the current settings
 
+        @param themes: bool Point it at the themes catalog rather than plugins
         @return WporgClient: A configured client
         """
 
@@ -423,9 +438,10 @@ class Crawler:
             max_retries=self._config.get("max_retries", 3),
             retry_backoff=self._config.get("retry_backoff", 2.0),
             rate_limit_delay=self._config.get("rate_limit_delay", 0.25),
+            themes=themes,
         )
 
-    async def crawl(self, full: bool = False, max_pages: int | None = None) -> CrawlStats:
+    async def crawl(self, full: bool = False, max_pages: int | None = None, themes: bool = False) -> CrawlStats:
         """
         Walk the catalog and bring the database in line with it
 
@@ -435,14 +451,16 @@ class Crawler:
 
         @param full: bool Force a full seed crawl
         @param max_pages: int|None Stop after this many pages, for testing
+        @param themes: bool Walk the themes catalog rather than plugins
         @return CrawlStats: What the crawl did
         """
 
         stats = CrawlStats()
         now = datetime.now()
+        software_type = SoftwareType.THEME if themes else SoftwareType.PLUGIN
 
         # a seed that never finished resumes rather than starting over
-        seed = self._checkpoint(SEED)
+        seed = self._checkpoint(THEME_SEED if themes else SEED)
         resuming = not seed.completed and seed.page > 0
         is_seed = full or not seed.completed
 
@@ -455,7 +473,7 @@ class Crawler:
                 checkpoint.high_water_mark = None
             logger.info("running a %s seed crawl from page %s", "resumed" if resuming else "full", start_page)
         else:
-            checkpoint = self._checkpoint(INCREMENTAL)
+            checkpoint = self._checkpoint(THEME_INCREMENTAL if themes else INCREMENTAL)
             start_page = 1
             stop_at = checkpoint.high_water_mark or seed.high_water_mark
             logger.info("running an incremental crawl back to %s", stop_at or "the beginning")
@@ -476,7 +494,7 @@ class Crawler:
         newest: datetime | None = None
         reached_known = False
 
-        async with self._build_client() as client:
+        async with self._build_client(themes) as client:
             total_pages, _ = await client.page_count(per_page=per_page)
             checkpoint.total_pages = total_pages
 
@@ -501,7 +519,7 @@ class Crawler:
                         reached_known = True
                         continue
 
-                    self._upsert(record, stats, now)
+                    self._upsert(record, stats, now, software_type)
 
                 checkpoint.page = page
                 checkpoint.processed = stats.seen
@@ -544,7 +562,8 @@ class Crawler:
 
         self._session.commit()
         logger.info(
-            "crawl finished: %s pages, %s seen, %s added, %s updated, %s unchanged",
+            "%s crawl finished: %s pages, %s seen, %s added, %s updated, %s unchanged",
+            software_type.value,
             stats.pages,
             stats.seen,
             stats.added,

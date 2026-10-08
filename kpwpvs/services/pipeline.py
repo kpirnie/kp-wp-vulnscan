@@ -144,12 +144,16 @@ class Pipeline:
             core_releases = crawler.crawl_core()
             crawl_stats = asyncio.run(crawler.crawl(full=full_crawl))
 
+            # then the themes, the same walk against the other catalog
+            theme_stats = asyncio.run(crawler.crawl(full=full_crawl, themes=True))
+
             run.plugins_seen = crawl_stats.seen
             run.plugins_added = crawl_stats.added
             run.plugins_updated = crawl_stats.updated
 
             payload = crawl_stats.as_dict()
             payload["core_releases"] = core_releases
+            payload["themes"] = theme_stats.as_dict()
             self._finish_stage(stage, RunStatus.SUCCESS, payload)
 
         except Exception as exc:
