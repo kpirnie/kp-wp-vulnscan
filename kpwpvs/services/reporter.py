@@ -17,6 +17,7 @@ moot, so it is never buried under a plugin table.
 
 # setup the imports
 import json
+import html
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -736,19 +737,28 @@ def _build_webhook_body(
     # keeps the worst first since the findings already arrive in that order
     if style in ("slack", "discord"):
         bold = "*" if style == "slack" else "**"
+        limit = 3999 if style == "slack" else 1999
+
+        # slack treats &, <, and > as control characters, so they get encoded
+        def clean(value: str) -> str:
+            return html.escape(value, quote=False) if style == "slack" else value
 
         groups: dict[str, list[str]] = {}
         for finding in new_findings:
             groups.setdefault(finding["severity"], []).append(
-                f"• {finding['name']}: {finding['version']} - {finding['cve'] or 'no cve'}"
+                f"• {clean(finding['name'])}: {clean(finding['version'])} - {finding['cve'] or 'no cve'}"
             )
 
-        parts = [f"{bold}{payload['site_name']}{bold}: {len(new_findings)} new finding(s)"]
+        parts = [f"{bold}{clean(payload['site_name'])}{bold}: {len(new_findings)} new finding(s)"]
         for severity, lines in groups.items():
             parts.append(f"\n{bold}{severity.capitalize()}{bold}")
             parts.extend(lines)
 
         text_body = "\n".join(parts)
+
+        # trim back to the last full line so nothing is cut mid-entry
+        if len(text_body) > limit:
+            text_body = text_body[:limit].rsplit("\n", 1)[0]
 
         if style == "slack":
             return {"text": text_body}
