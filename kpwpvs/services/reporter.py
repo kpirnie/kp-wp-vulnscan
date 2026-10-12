@@ -732,24 +732,26 @@ def _build_webhook_body(
 
     headline = f"{payload['site_name']}: {len(new_findings)} new finding(s) at {minimum.value} or above"
 
-    # one line per finding, already ordered worst first
-    lines = []
-    for finding in new_findings:
-        line = (
-            f"[{finding['severity']}] {finding['type']} {finding['name']} {finding['version']}: "
-            f"{finding['cve'] or 'no cve'} {finding['title']}"
-        )
-        if finding["fixed_in_version"]:
-            line += f" (fixed in {finding['fixed_in_version']})"
-        lines.append(line)
+    # slack and discord both take markdown text, grouped by severity, which
+    # keeps the worst first since the findings already arrive in that order
+    if style in ("slack", "discord"):
+        bold = "*" if style == "slack" else "**"
 
-    text_body = headline + "\n" + "\n".join(lines)
+        groups: dict[str, list[str]] = {}
+        for finding in new_findings:
+            groups.setdefault(finding["severity"], []).append(
+                f"• {finding['name']}: {finding['version']} - {finding['cve'] or 'no cve'}"
+            )
 
-    # slack and discord both take a plain text field, everything else gets
-    # the structured list so it can be parsed rather than read
-    if style == "slack":
-        return {"text": text_body}
-    if style == "discord":
+        parts = [f"{bold}{payload['site_name']}{bold}: {len(new_findings)} new finding(s)"]
+        for severity, lines in groups.items():
+            parts.append(f"\n{bold}{severity.capitalize()}{bold}")
+            parts.extend(lines)
+
+        text_body = "\n".join(parts)
+
+        if style == "slack":
+            return {"text": text_body}
         return {"content": text_body}
 
     return {
