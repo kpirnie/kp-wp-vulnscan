@@ -16,8 +16,8 @@ moot, so it is never buried under a plugin table.
 """
 
 # setup the imports
-import json
 import html
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
